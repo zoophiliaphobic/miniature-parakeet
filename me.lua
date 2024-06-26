@@ -180,6 +180,7 @@ for rolename,fakename in pairs(roleswithsounds) do
             if delaytime > 0 then
                 while totaltime < delaytime do
                     totaltime += task.wait()
+                    delaytime = math.clamp(tab_sounds_slider_delay.getvalue(),0,math.huge)
 
                     if not isenabled then
                         break
@@ -217,6 +218,7 @@ local tab_sounds_toggle_customrole = tab_sounds.newtoggle({
             if delaytime > 0 then
                 while totaltime < delaytime do
                     totaltime += task.wait()
+                    delaytime = math.clamp(tab_sounds_slider_delay.getvalue(),0,math.huge)
 
                     if not isenabled then
                         break
