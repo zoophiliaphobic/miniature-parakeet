@@ -1,6 +1,7 @@
 local plr = game.Players.LocalPlayer
 local us = game:GetService("UserInputService")
 local runs = game:GetService("RunService")
+local votingvalue = game.ReplicatedStorage:WaitForChild("Values"):WaitForChild("Voting")
 local utgsettings = plr:WaitForChild("Options")
 local playergui = plr:WaitForChild("PlayerGui")
 local debugstatsgui = playergui:WaitForChild("Debug")
@@ -8,7 +9,7 @@ local movementstats = debugstatsgui:WaitForChild("TextLabel")
 local currentmap = workspace:WaitForChild("CurrentMap")
 local olddebugmenu = plr.PlayerGui:WaitForChild("testing"):WaitForChild("DebugMenu")
 local codemodifiers = plr.Modifiers.Code
-local playerrole = plr.PlayerRole
+local playerrole = plr:WaitForChild("PlayerRole")
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zoophiliaphobic/psychic-octo-pancake/main/library.lua"))()
 local window = library.createwindow({title="welcome! press ` to close/open"})
 
@@ -190,6 +191,7 @@ local tab_hacks_toggle_lowvault = tab_hacks.newtoggle({title="allow <1.5 stud va
 onclick=function(bool)
     tab_hacks_slider_staticvault.setmin(bool and 0 or 1.5)
 end})
+local tab_hacks_toggle_nullvault = tab_hacks.newtoggle({title="anti-nullvault"})
 
 local tab_hacks_toggle_autovault = tab_hacks.newtoggle({title="auto vault (innaccurate) (must have always show vault raycast enabled)"})
 local tab_hacks_slider_autovaultheight = tab_hacks.newslider({
@@ -272,7 +274,26 @@ end})
 local tab_hacks_toggle_teleroll = tab_hacks.newtoggle({title="teleport roll"})
 local tab_hacks_toggle_velroll = tab_hacks.newtoggle({title="velocity roll"})
 local tab_hacks_toggle_autoroll = tab_hacks.newtoggle({title="automatic roll"})
-local tab_hacks_toggle_antifreeze = tab_hacks.newtoggle({title="anti-freeze"})
+local tab_hacks_slider_autorollvel = tab_hacks.newslider({
+    title = "auto roll start check velocity",
+    min=-42,
+    max=0,
+    increment = 0.1,
+    default = -42,
+})
+
+local tab_hacks_toggle_noknockback = tab_hacks.newtoggle({title="no knockback"})
+local tab_hacks_toggle_antifreeze = tab_hacks.newtoggle({title="anti-freeze",
+onclick=function(bool)
+    local char = plr.Character
+    if bool and char then
+        for i,v in pairs(char:GetChildren()) do
+            if v:IsA("BasePart") then
+                v.Anchored = false
+            end
+        end
+    end
+end})
 local tab_hacks_toggle_contactdmg = tab_hacks.newtoggle({
     title="disable contact damage",
     onclick=function(bool)
@@ -312,6 +333,35 @@ local tab_hacks_slider_staticswing = tab_hacks.newslider({
     default = 100,
 })
 
+local tab_hacks_toggle_teamtag
+
+local function updatetagteammates(bool)
+    bool = bool or tab_hacks_toggle_teamtag.getvalue()
+
+    for _,v in pairs(game.Players:GetPlayers()) do
+        if v ~= plr then
+            local role = v.PlayerRole.Value
+            local disablequery = bool and (role ~= "Alone" and role ~= playerrole.Value)
+
+            for i,limb in pairs(v.Character:GetDescendants()) do
+                if limb:IsA("BasePart") then
+                    limb.CanQuery = disablequery
+                end
+            end
+            
+        end
+    end
+end
+
+votingvalue.Changed:Connect(updatetagteammates)
+playerrole.Changed:Connect(updatetagteammates)
+
+tab_hacks_toggle_teamtag = tab_hacks.newtoggle({
+    title="tag through teammates (fix pls)",
+    onclick=function(bool)
+    updatetagteammates(bool)
+end})
+
 local slidermodifiers = {
     JumpPowerMultiplier = {"jump power multplier",0,5},
     WalkSpeedMultiplier = {"walking speed multplier",0,5},
@@ -320,8 +370,8 @@ local slidermodifiers = {
     RangeMultiplier = {"range multplier",0,10},
     MomentumMultiplier = {"momentum multiplier",0,10},
     GravityMultiplier = {"gravity multiplier",0,2},
-    RailGrindMultiplier = {"rail speed multplier",0,3},
-    RollSpeedMultiplier = {"roll speed multplier",0,5},
+    RailGrindMultiplier = {"railing speed multplier",0,3},
+    RollSpeedMultiplier = {"roll speed boost multplier",0,5},
     RollBoostMultiplier = {"roll jump boost multplier",0,5},
     WindowSmashMultiplier = {"window smash boost multiplier",-5,1},
 }
@@ -352,17 +402,20 @@ end
 
 for modname,fakename in pairs(togglemodifiers) do
     tab_mods.newtoggle({
-        title = fakename,
+        title = fakename,color=Color3.fromRGB(190,150,150),
     onclick = function(val)
         codemodifiers:SetAttribute(modname,val)
     end})
 end
 
 function characteradded(char)
+    local root = char:WaitForChild("HumanoidRootPart")
+    local hum = char:WaitForChild("Humanoid")
+    local animator = hum:WaitForChild("Animator")
     local scripts = char:WaitForChild("scripts") 
     local emotescript = scripts:WaitForChild("animation"):WaitForChild("Emotes")
+    local animatescript = scripts:WaitForChild("animation"):WaitForChild("Animate")
     local momentumleanscript = scripts:WaitForChild("visuals"):WaitForChild("MomentumLeaning")
-    local root = char:WaitForChild("HumanoidRootPart")
     rayparams.FilterDescendantsInstances = {char}
 
     local function limbadded(v)
@@ -386,39 +439,41 @@ function characteradded(char)
     end)
 
     root.ChildAdded:Connect(function(v)
-        if (v.Name == "Vault" or v.Name == "HighVault") and tab_hacks_toggle_staticvault.getvalue() then
-            task.wait()
-            local isaccurate = tab_hacks_toggle_accuratevault.getvalue()
-            local vel = char.PrimaryPart.AssemblyLinearVelocity
-            local height = math.clamp(tab_hacks_slider_staticvault.getvalue(),1,math.huge)
+        if (v.Name == "Vault" or v.Name == "HighVault") then
+            if tab_hacks_toggle_staticvault.getvalue() then
+                task.wait()
+                local isaccurate = tab_hacks_toggle_accuratevault.getvalue()
+                local vel = char.PrimaryPart.AssemblyLinearVelocity
+                local height = math.clamp(tab_hacks_slider_staticvault.getvalue(),1,math.huge)
 
-            local txt = movementstats.Text
-            local findstart = string.find(txt,"vault height")
-            local findend = string.find(txt,"roll ms")-2
-            local actualheight = tonumber(string.sub(txt,findstart+14,findend-6))
+                local txt = movementstats.Text
+                local findstart = string.find(txt,"vault height")
+                local findend = string.find(txt,"roll ms")-2
+                local actualheight = tonumber(string.sub(txt,findstart+14,findend-6))
 
-            if isaccurate then
-                local offset = height-actualheight
-                task.spawn(function()
-                    for i=1,10 do
-                        char:PivotTo(char:GetPivot()-Vector3.new(0,offset/10,0))
-                        task.wait()
-                    end
-                end)
+                if isaccurate then
+                    local offset = height-actualheight
+                    task.spawn(function()
+                        for i=1,10 do
+                            char:PivotTo(char:GetPivot()-Vector3.new(0,offset/10,0))
+                            task.wait()
+                        end
+                    end)
+                end
+
+                local yvelocity = (height <= 1.5 and 30) or 19.51*(height^1.02417)
+
+                if tab_hacks_toggle_lowvault.getvalue() then
+                    yvelocity = 19.51*(height^1.02417)
+                end
+
+                -- char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(vel.X*1,
+                -- height <= 1.5 and 30 or -0.6532+19.9402*height
+                -- ,vel.Z*1)
+                --char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(vel.X*1,(2*height)^2+(4*height)+24,vel.Z*1)
+                
+                char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(vel.X*1,yvelocity,vel.Z*1)
             end
-
-            local yvelocity = (height <= 1.5 and 30) or 19.51*(height^1.02417)
-
-            if tab_hacks_toggle_lowvault.getvalue() then
-                yvelocity = 19.51*(height^1.02417)
-            end
-
-            -- char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(vel.X*1,
-            -- height <= 1.5 and 30 or -0.6532+19.9402*height
-            -- ,vel.Z*1)
-            --char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(vel.X*1,(2*height)^2+(4*height)+24,vel.Z*1)
-            
-            char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(vel.X*1,yvelocity,vel.Z*1)
         end
 
         if v.Name == "SwingBar" and tab_hacks_toggle_staticswing.getvalue() then
@@ -428,6 +483,33 @@ function characteradded(char)
             root.AssemblyLinearVelocity = Vector3.new(vel.X,-(25+(55*mult)),vel.Z)
             task.wait()
             root.AssemblyLinearVelocity = Vector3.new(vel.X,vel.Y,vel.Z)
+        end
+
+        if v.Name == "FrozenBlock" and tab_hacks_toggle_antifreeze.getvalue() then
+            v.CanCollide = false
+        end
+        
+        if v.Name == "TagBodyVelocity" and v:IsA("BodyVelocity") then
+            if tab_hacks_toggle_noknockback.getvalue() then
+                v.Velocity = Vector3.new(0,0,0)
+            end
+        end
+    end)
+
+    local cancelall = false
+    animator.AnimationPlayed:Connect(function(v)
+        if cancelall then
+            v:Stop()
+            return
+        end
+
+        if v.Name == "Vault" and tab_hacks_toggle_nullvault.getvalue() then
+            cancelall = true
+            for i,p in pairs(animator:GetPlayingAnimationTracks()) do
+                p:Stop()
+            end
+            task.wait(0.1)
+            cancelall = false
         end
     end)
 
@@ -601,7 +683,7 @@ runs.RenderStepped:Connect(function()
         local prim = char:FindFirstChild("HumanoidRootPart")
         local vel = prim.AssemblyLinearVelocity
 
-        if vel.Y <= -42 and not stoprollchecking then
+        if vel.Y <= tab_hacks_slider_autorollvel.getvalue() and not stoprollchecking then
             local overflow = (math.clamp(vel.Y,-math.huge,-45)/-45)-1
             local raydist = -6-(overflow/1.9)
             local ray = workspace:Raycast(prim.Position,Vector3.new(0,raydist,0),rayparams)
