@@ -558,6 +558,7 @@ function characteradded(char)
         
         if v.Name == "TagBodyVelocity" and v:IsA("BodyVelocity") then
             if tab_hacks_toggle_noknockback.getvalue() then
+                v.MaxForce = Vector3.new(0,0,0)
                 v.Velocity = Vector3.new(0,0,0)
             end
         end
