@@ -158,6 +158,8 @@ local tab_sounds_slider_delay = tab_sounds.newslider({
 
 local tab_sounds_toggle_muterole = tab_sounds.newtoggle({title="mute role changed noise"})
 
+local lastrealrole = playerrole.Value
+local rolesoundsbeingplayed = {}
 for rolename,fakename in pairs(roleswithsounds) do
     local isenabled = false
 
@@ -165,17 +167,79 @@ for rolename,fakename in pairs(roleswithsounds) do
         title = fakename,
         color = Color3.fromRGB(190,135,90),
     onclick = function(val)
-        local prevrole = playerrole.Value
         isenabled = val
+        table.insert(rolesoundsbeingplayed,rolename)
 
         while isenabled do
-            playerrole.Value = rolename
             playerrole.Value = "Random"
-            task.wait(tab_sounds_slider_delay.getvalue())
+            playerrole.Value = rolename
+            local delaytime = math.clamp(tab_sounds_slider_delay.getvalue(),0,math.huge)
+            local totaltime = 0
+
+            -- ahh yes, the loop within a loop nothing could ever go wrong!
+            if delaytime > 0 then
+                while totaltime < delaytime do
+                    totaltime += task.wait()
+
+                    if not isenabled then
+                        break
+                    end
+                end
+            else
+                task.wait()
+            end
         end
-        playerrole.Value = prevrole
+        table.remove(rolesoundsbeingplayed,table.find(rolesoundsbeingplayed,rolename))
+
+        if #rolesoundsbeingplayed <= 0 then
+            playerrole.Value = lastrealrole or "Runner"
+        end
     end})
 end
+
+local tab_sounds_textbox_customrolename = tab_sounds.newtextbox({title="custom role sounds name"})
+
+local tab_sounds_toggle_customrole = tab_sounds.newtoggle({
+        title = "play custom role sounds",
+        color = Color3.fromRGB(200,160,90),
+    onclick = function(val)
+        local rolename = tab_sounds_textbox_customrolename.getvalue()
+        isenabled = val
+        table.insert(rolesoundsbeingplayed,rolename)
+
+        while isenabled do
+            playerrole.Value = "Random"
+            playerrole.Value = rolename
+            local delaytime = math.clamp(tab_sounds_slider_delay.getvalue(),0,math.huge)
+            local totaltime = 0
+
+            -- ahh yes, the loop within a loop nothing could ever go wrong!
+            if delaytime > 0 then
+                while totaltime < delaytime do
+                    totaltime += task.wait()
+
+                    if not isenabled then
+                        break
+                    end
+                end
+            else
+                task.wait()
+            end
+        end
+        table.remove(rolesoundsbeingplayed,table.find(rolesoundsbeingplayed,rolename))
+
+        if #rolesoundsbeingplayed <= 0 then
+            playerrole.Value = lastrealrole or "Runner"
+        end
+end})
+
+playerrole.Changed:Connect(function()
+    local role = playerrole.Value
+    
+    if role ~= "Random" and not table.find(rolesoundsbeingplayed,role) then
+        lastrealrole = role
+    end
+end)
 
 local tab_hacks_toggle_staticvault = tab_hacks.newtoggle({title="enable static vault height"})
 local tab_hacks_toggle_accuratevault = tab_hacks.newtoggle({title="accurate static vault"})
@@ -388,9 +452,11 @@ local togglemodifiers = {
     DisableVaulting = "disable vaulting",
 }
 
+local slidermotifierswitchcolors = false
 for modname,v in pairs(slidermodifiers) do
     tab_mods.newslider({
         title = v[1],
+        color = slidermotifierswitchcolors and Color3.fromRGB(210,220,210) or Color3.fromRGB(160,170,160),
         min = v[2],
         max = v[3],
         increment = 0.1,
@@ -398,6 +464,7 @@ for modname,v in pairs(slidermodifiers) do
     onchanged = function(val)
         codemodifiers:SetAttribute(modname,val)
     end})
+    slidermotifierswitchcolors = not slidermotifierswitchcolors
 end
 
 for modname,fakename in pairs(togglemodifiers) do
@@ -568,7 +635,7 @@ currentmap.ChildAdded:Connect(function(v)
 end)
 
 workspace.ChildAdded:Connect(function(v)
-    if tab_sounds_toggle_muterole.getvalue() and v:IsA("Sound") and v.Name == "RoleChange" then
+    if tab_sounds_toggle_muterole.getvalue() and #rolesoundsbeingplayed > 0 and v:IsA("Sound") and v.Name == "RoleChange" then
         v.Volume = 0
     end
 end)
