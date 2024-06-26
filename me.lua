@@ -61,6 +61,7 @@ local tab_hacks = window.createtab({title="hacks"})
 local tab_mods = window.createtab({title="modifications"})
 local tab_sounds = window.createtab({title="sounds"})
 local tab_fun = window.createtab({title="fun stuff"})
+local tab_maps = window.createtab({title="maps"})
 
 local tab_fun_toggle_emotemove = tab_fun.newtoggle({title="move while emoting"})
 local tab_fun_toggle_movelean = tab_fun.newtoggle({
@@ -477,6 +478,74 @@ for modname,fakename in pairs(togglemodifiers) do
     end})
 end
 
+local function loadmapmodel(mapfolder)
+    local char = plr.Character
+
+    if mapfolder == nil then
+        return
+    end
+    
+    if char then
+        local mapsize,mappivot
+        local spawns = {}
+
+        currentmap:ClearAllChildren()
+
+        if mapfolder:IsA("Model") then
+            mapsize,mappivot = mapfolder:GetBoundingBox()
+        else
+            local sudomodel = Instance.new("Model")
+            mapfolder.Parent = sudomodel
+            mapsize,mappivot = sudomodel:GetBoundingBox()
+        end
+
+        for i,v in pairs(mapfolder:GetDescendants()) do
+            if v:IsA("SpawnLocation") then
+                table.insert(spawns,v)
+            end
+        end
+        mapfolder.Parent = currentmap
+
+        local randspawn = #spawns > 0 and spawns[math.random(1,#spawns)]
+        local spawncframe = randspawn and randspawn.CFrame or mappivot+Vector3.new(0,100,0)
+        char:PivotTo(spawncframe+Vector3.new(0,6,0))
+    end
+end
+
+local ingamemaps = game.ReplicatedStorage.Maps:GetChildren()
+
+table.sort(ingamemaps,function(a,b)
+    return a.Name < b.Name
+end)
+
+local tab_maps_toggle_servermap = tab_maps.newtoggle({title="use pure server map (one time use per map)"})
+
+local mapstableswitchcolors = false
+for i,map in pairs(ingamemaps) do
+    local clientonlymode = false
+    local thebutton
+    thebutton = tab_maps.newbutton({
+        title=map.Name,
+        color = mapstableswitchcolors and Color3.fromRGB(220,210,200) or Color3.fromRGB(170,160,140),
+        onclick=function()
+            if tab_maps_toggle_servermap.getvalue() then
+                if clientonlymode then
+                    return
+                end
+
+                local clonedmap = map:Clone()
+                loadmapmodel(map)
+                clonedmap.Parent = game.ReplicatedStorage.Maps
+                map = clonedmap
+                clientonlymode = true
+                thebutton.changetitle(map.Name.." (only client)")
+            else
+                loadmapmodel(map:Clone())
+            end
+        end})
+    mapstableswitchcolors = not mapstableswitchcolors
+end
+
 function characteradded(char)
     local root = char:WaitForChild("HumanoidRootPart")
     local hum = char:WaitForChild("Humanoid")
@@ -510,22 +579,31 @@ function characteradded(char)
     root.ChildAdded:Connect(function(v)
         if (v.Name == "Vault" or v.Name == "HighVault") then
             if tab_hacks_toggle_staticvault.getvalue() then
-                task.wait()
                 local isaccurate = tab_hacks_toggle_accuratevault.getvalue()
+                local height = math.clamp(tab_hacks_slider_staticvault.getvalue(),0,math.huge)
+
+                if tab_hacks_toggle_spoofvault.getvalue() then
+                    v.SoundId = height>=2.5 and "rbxassetid://17775430987" or "rbxassetid://14054617616"
+                    v.Playing = true
+                end
+
+                task.wait()
                 local vel = char.PrimaryPart.AssemblyLinearVelocity
-                local height = math.clamp(tab_hacks_slider_staticvault.getvalue(),1,math.huge)
 
                 local txt = movementstats.Text
                 local findstart = string.find(txt,"vault height")
                 local findend = string.find(txt,"roll ms")-2
                 local actualheight = tonumber(string.sub(txt,findstart+14,findend-6))
-
+                
                 if isaccurate then
                     local offset = height-actualheight
+                    
                     task.spawn(function()
-                        for i=1,10 do
-                            char:PivotTo(char:GetPivot()-Vector3.new(0,offset/10,0))
-                            task.wait()
+                        if offset > 0 then
+                            for i=1,10 do
+                                char:PivotTo(char:GetPivot()-Vector3.new(0,offset/10,0))
+                                task.wait()
+                            end
                         end
                     end)
                 end
@@ -670,8 +748,16 @@ debugstatsgui:WaitForChild("PrintList").ChildAdded:Connect(function(v)
                     v.TextColor3 = Color3.fromRGB(255,255,255)
                 elseif height >= 2 then
                     v.TextColor3 = Color3.fromRGB(80,255,179)
+
+                    if v:FindFirstChild("Rainbow") then
+                        v.Rainbow:Destroy()
+                    end
                 else
                     v.TextColor3 = Color3.fromRGB(225,255,226)
+
+                    if v:FindFirstChild("Rainbow") then
+                        v.Rainbow:Destroy()
+                    end
                 end
             end
         end
