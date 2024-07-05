@@ -7,7 +7,6 @@ local playergui = plr:WaitForChild("PlayerGui")
 local debugstatsgui = playergui:WaitForChild("Debug")
 local movementstats = debugstatsgui:WaitForChild("TextLabel")
 local currentmap = workspace:WaitForChild("CurrentMap")
-local olddebugmenu = plr.PlayerGui:WaitForChild("testing"):WaitForChild("DebugMenu")
 local codemodifiers = plr.Modifiers.Code
 local playerrole = plr:WaitForChild("PlayerRole")
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zoophiliaphobic/psychic-octo-pancake/main/library.lua"))()
@@ -87,12 +86,6 @@ local tab_fun_toggle_expswing = tab_fun.newtoggle({
                 end
             end
         end
-    end
-})
-tab_fun.newbutton({
-    title = "open old debug menu",
-    onclick = function()
-        olddebugmenu.Visible = not olddebugmenu.Visible
     end
 })
 local tab_fun_toggle_slowmotion = tab_fun.newtoggle({title="slow motion"})
@@ -608,10 +601,10 @@ function characteradded(char)
                     end)
                 end
 
-                local yvelocity = (height <= 1.5 and 30) or 19.51*(height^1.02417)
-
-                if tab_hacks_toggle_lowvault.getvalue() then
-                    yvelocity = 19.51*(height^1.02417)
+                local yvelocity = 19.51*(height^1.02417)
+                
+                if not tab_hacks_toggle_lowvault.getvalue() then
+                    yvelocity = math.clamp(yvelocity,30,math.huge)
                 end
 
                 -- char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(vel.X*1,
