@@ -4,6 +4,9 @@ local runs = game:GetService("RunService")
 local votingvalue = game.ReplicatedStorage:WaitForChild("Values"):WaitForChild("Voting")
 local utgsettings = plr:WaitForChild("Options")
 local playergui = plr:WaitForChild("PlayerGui")
+local ingamemenu = playergui:WaitForChild("InGameMenu")
+local browser = ingamemenu:WaitForChild("Browser")
+local utgsites = browser:WaitForChild("Frame"):WaitForChild("Content"):WaitForChild("Site")
 local debugstatsgui = playergui:WaitForChild("Debug")
 local movementstats = debugstatsgui:WaitForChild("TextLabel")
 local currentmap = workspace:WaitForChild("CurrentMap")
@@ -30,8 +33,6 @@ local randomtitles = {
     "tagmin 2.0",
     "telob gui",
     "created by telob ;)",
-    "acq gui",
-    "created by acq ;)",
     "competitive tag league gui",
     "utghub",
     "ultimate utg gui",
@@ -48,12 +49,38 @@ local randomtitles = {
     "stop banning me",
     "report!! hacker!!",
     "hey there",
+    "yall dont know me",
+    "get this guy in #exploiter-reports",
+    "this {user} guy looks weird",
+    "hello {user} :)",
+    "{user} gui",
+    "@{user}",
+    "wire me $30 for the premium gui",
+    "infinite tags generator",
+    "snarp",
+    "wiser actually sucks 1v1 me scrub",
+    "1v1 me {user}",
+    "@colde ban this guy",
+    "{user} is the real ultimateutgplayer",
+    "thx to chamber for helping me",
+    "credits to blazing for this gui",
+    "new debug menu sucks",
+    '"they added wallrunning" ahh gui',
+    ":steam-happy:",
+    "if only we had remote spy...",
+    "S tier gui",
 }
 
 window.visibilitychanged = function(opened)
     if opened then
-        window.changetitle(randomtitles[math.random(1,#randomtitles)])
+        local newtitle = randomtitles[math.random(1,#randomtitles)]
+        newtitle = string.gsub(newtitle,"{user}",plr.DisplayName)
+        window.changetitle(newtitle)
     end
+end
+
+function waitframe()
+    runs.RenderStepped:Wait()
 end
 
 local tab_hacks = window.createtab({title="hacks"})
@@ -89,6 +116,19 @@ local tab_fun_toggle_expswing = tab_fun.newtoggle({
     end
 })
 local tab_fun_toggle_slowmotion = tab_fun.newtoggle({title="slow motion"})
+
+tab_fun.newbutton({
+    title = "open utg report website",
+    onclick = function()
+        ingamemenu.Enabled = true
+        browser.Size = UDim2.new(0.65,0,0.65,0)
+        browser.Frame.Size = UDim2.new(1,0,1,0)
+
+        for i,v in pairs(utgsites:GetChildren()) do
+            v.Visible = v.Name == "UTGReport"
+        end
+    end
+})
 
 local tab_fun_slider_cloneamt = tab_fun.newslider({
     title = "parkour script duplicate amount",
@@ -354,6 +394,30 @@ onclick=function(bool)
         end
     end
 end})
+local tab_hacks_toggle_controlzip
+tab_hacks_toggle_controlzip = tab_hacks.newtoggle({
+    title="controllable ziplines (brocken)",
+    onclick=function(bool)
+    local char = plr.Character
+
+    if char then
+        local root = char.HumanoidRootPart
+
+        if root then
+            for i,v in pairs(root:GetChildren()) do    
+                if v:IsA("AlignPosition") then
+                    task.spawn(function()
+                        while tab_hacks_toggle_controlzip.getvalue() do    
+                            v.ReactionForceEnabled = not v.ReactionForceEnabled
+                            task.wait()
+                        end
+                        v.ReactionForceEnabled = false
+                    end)
+                end
+            end
+        end
+    end
+end})
 local tab_hacks_toggle_contactdmg = tab_hacks.newtoggle({
     title="disable contact damage",
     onclick=function(bool)
@@ -549,27 +613,7 @@ function characteradded(char)
     local momentumleanscript = scripts:WaitForChild("visuals"):WaitForChild("MomentumLeaning")
     rayparams.FilterDescendantsInstances = {char}
 
-    local function limbadded(v)
-        v.Changed:Connect(function()
-            if tab_hacks_toggle_antifreeze.getvalue() and not tab_fun_toggle_slowmotion.getvalue() then
-                v.Anchored = false
-            end
-        end)
-    end
-
-    if tab_fun_toggle_movelean.getvalue() then
-        momentumleanscript.Disabled = true
-    end
-
-    char.Changed:Connect(function()
-        if char:GetAttribute("Emoting") and tab_fun_toggle_emotemove.getvalue() then
-            task.wait()
-            emotescript.Disabled = true
-            emotescript.Disabled = false
-        end
-    end)
-
-    root.ChildAdded:Connect(function(v)
+    local function rootinstanceadded(v)
         if (v.Name == "Vault" or v.Name == "HighVault") then
             if tab_hacks_toggle_staticvault.getvalue() then
                 local isaccurate = tab_hacks_toggle_accuratevault.getvalue()
@@ -635,6 +679,44 @@ function characteradded(char)
                 v.Velocity = Vector3.new(0,0,0)
             end
         end
+
+        if v:IsA("AlignPosition") and tab_hacks_toggle_controlzip.getvalue() then
+             task.spawn(function()
+                while tab_hacks_toggle_controlzip.getvalue() do    
+                    v.ReactionForceEnabled = not v.ReactionForceEnabled
+                    task.wait()
+                end
+                v.ReactionForceEnabled = false
+            end)
+        end
+    end
+
+    local function limbadded(v)
+        v.Changed:Connect(function()
+            if tab_hacks_toggle_antifreeze.getvalue() and not tab_fun_toggle_slowmotion.getvalue() then
+                v.Anchored = false
+            end
+        end)
+    end
+
+    if tab_fun_toggle_movelean.getvalue() then
+        momentumleanscript.Disabled = true
+    end
+
+    char.Changed:Connect(function()
+        if char:GetAttribute("Emoting") and tab_fun_toggle_emotemove.getvalue() then
+            task.wait()
+            emotescript.Disabled = true
+            emotescript.Disabled = false
+        end
+    end)
+
+    for i,v in pairs(root:GetChildren()) do
+        rootinstanceadded(v)
+    end
+
+    root.ChildAdded:Connect(function(v)
+        rootinstanceadded(v)
     end)
 
     local cancelall = false
