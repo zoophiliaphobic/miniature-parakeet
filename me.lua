@@ -614,7 +614,7 @@ local tab_hacks_toggle_tagbot = tab_hacks.newtoggle({title="tag aura",onclick=fu
                         elseif kbmode == 2 then
                             knockback = Vector3.new(0,1,0)
                         elseif kbmode == 3 then
-                            knockback = -(mouse.Hit-wchar:GetPivot().Position).Unit
+                            knockback = -(mouse.Hit.Position-wchar:GetPivot().Position).Unit
                         end
 
                         if tab_hacks_toggle_tagbotinvertkb.getvalue() then
