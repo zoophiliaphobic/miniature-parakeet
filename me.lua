@@ -1,17 +1,29 @@
 local plr = game.Players.LocalPlayer
-local us = game:GetService("UserInputService")
-local runs = game:GetService("RunService")
-local votingvalue = game.ReplicatedStorage:WaitForChild("Values"):WaitForChild("Voting")
+local camera = workspace.CurrentCamera
 local utgsettings = plr:WaitForChild("Options")
 local playergui = plr:WaitForChild("PlayerGui")
+local debugstatsgui = playergui:WaitForChild("Debug")
+local movementstats = debugstatsgui:WaitForChild("TextLabel")
 local ingamemenu = playergui:WaitForChild("InGameMenu")
 local browser = ingamemenu:WaitForChild("Browser")
 local utgsites = browser:WaitForChild("Frame"):WaitForChild("Content"):WaitForChild("Site")
-local debugstatsgui = playergui:WaitForChild("Debug")
-local movementstats = debugstatsgui:WaitForChild("TextLabel")
-local currentmap = workspace:WaitForChild("CurrentMap")
+
+local us = game:GetService("UserInputService")
+local runs = game:GetService("RunService")
+
+local votingvalue = game.ReplicatedStorage:WaitForChild("Values"):WaitForChild("Voting")
+local soundsfolder = game.ReplicatedStorage:WaitForChild("Sounds")
+
+local events = game.ReplicatedStorage:WaitForChild("Events")
+local sfxevent = events:WaitForChild("replication"):WaitForChild("SoundEvent")
+local tagevent = events:WaitForChild("game"):WaitForChild("tags"):WaitForChild("TagPlayer")
+
 local codemodifiers = plr.Modifiers.Code
 local playerrole = plr:WaitForChild("PlayerRole")
+
+local currentmap = workspace:WaitForChild("CurrentMap")
+local playerhighlights = workspace:WaitForChild("playerHighlights")
+
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zoophiliaphobic/psychic-octo-pancake/main/library.lua"))()
 local window = library.createwindow({title="welcome! press ` to close/open"})
 
@@ -83,13 +95,94 @@ function waitframe()
     runs.RenderStepped:Wait()
 end
 
+local UTGenemymatrix = {
+    ["All"] = {"Neutral"},
+
+    ["Freezer"] = {"Runner","Frozen"},
+    ["Chiller"] = {"Runner"},
+
+    ["RedCaptain"] = {"BlueCaptain","BlueTeam"},
+    ["BlueCaptain"] = {"RedCaptain","RedTeam"},
+
+    ["BlueTeam"] = {"RedTeam","GreenTeam","YellowTeam","OrangeTeam","PurpleTeam","FrozenBlue"},
+    ["RedTeam"] = {"BlueTeam","GreenTeam","YellowTeam","OrangeTeam","PurpleTeam","FrozenRed"},
+    ["GreenTeam"] = {"BlueTeam","RedTeam","YellowTeam","OrangeTeam","PurpleTeam"},
+    ["YellowTeam"] = {"BlueTeam","GreenTeam","RedTeam","OrangeTeam","PurpleTeam"},
+    ["OrangeTeam"] = {"BlueTeam","GreenTeam","RedTeam","YellowTeam","PurpleTeam"},
+    ["PurpleTeam"] = {"BlueTeam","GreenTeam","RedTeam","OrangeTeam","YellowTeam"},
+
+    ["BlueTeamPaintball"] = {"RedTeamPaintball","GreenTeamPaintball","YellowTeamPaintball"},
+    ["RedTeamPaintball"] = {"BlueTeamPaintball","GreenTeamPaintball","YellowTeamPaintball"},
+    ["GreenTeamPaintball"] = {"BlueTeamPaintball","RedTeamPaintball","YellowTeamPaintball"},
+    ["YellowTeamPaintball"] = {"BlueTeamPaintball","GreenTeamPaintball","RedTeamPaintball"},
+
+    ["FFATagger"] = {"FFATagger"},
+
+    ["Tagger"] = {"Runner"},   
+    ["CompDyingTagger"] = {"Runner"},   
+    ["RunnerTagger"] = {"Runner"},  
+
+    ["Slasher"] = {"Runner","Chiller","Juggernaut","Survivor"},
+    ["HiddenSlasher"] = {"Survivor"},
+    ["Haunter"] = {"Survivor"},
+    
+    ["Seeker"] = {"Hider"},
+
+    ["Juggernaut"] = {"Runner","Hunter","Infected"},
+
+    ["Medic"] = {"PatientZero","InfectedRunner","Infected"},
+    ["PatientZero"] = {"Runner","Juggernaut","Frozen","Medic"},
+    ["Infected"] = {"Runner","Juggernaut","Frozen","Medic"},
+    ["JumpingInfected"] = {"Runner"},
+    ["FastInfected"] = {"Runner"},
+    ["BigInfected"] = {"Runner"},
+    ["CloakInfected"] = {"Runner"},
+    ["BabyInfected"] = {"Runner"},
+
+    ["Peasant"] = {"Crown","Knight"},
+    ["Knight"] = {"Peasant"},
+    ["pingus"] = {"Runner"},
+
+    ["Dead"] = {"Crown"},
+
+    ["Eliminator"] = {"Runner"},
+
+    ["Bomb"] = {"Runner","Crown"},
+    ["FunnyBomb"] = {"Runner"},
+    ["HotPotato"] = {"Runner"},
+    ["SubspaceBomb"] = {"Runner"},
+}
+
+function getenemies(rolename)
+    local enemies = {}
+    local minimumamt = #UTGenemymatrix["All"]
+
+    for rolecate,emtbl in pairs(UTGenemymatrix) do
+        if rolecate == rolename or rolecate == "All" then
+            for _,v in pairs(emtbl) do
+                table.insert(enemies,v)
+            end
+        end
+    end
+
+    if #enemies <= minimumamt then
+        for i,v in pairs(playerhighlights:GetChildren()) do
+            if v.Name ~= rolename then
+                table.insert(enemies,v.Name)
+            end
+        end
+    end
+    
+    return enemies
+end
+
 local tab_hacks = window.createtab({title="hacks"})
 local tab_mods = window.createtab({title="modifications"})
 local tab_sounds = window.createtab({title="sounds"})
 local tab_fun = window.createtab({title="fun stuff"})
 local tab_maps = window.createtab({title="maps"})
 
-local tab_fun_toggle_emotemove = tab_fun.newtoggle({title="move while emoting"})
+local tab_fun_toggle_emotemove = tab_fun.newtoggle({title="move while emoting (NEVER COMING BACK LOL LOL EZZZZZ)"})
 local tab_fun_toggle_movelean = tab_fun.newtoggle({
     title="disable movement leaning",
     onclick = function(val)
@@ -170,112 +263,211 @@ tab_fun.newbutton({
     end
 })
 
-local roleswithsounds = {
-    Crown = "play crown sounds",
-    FunnyBomb = "play screaming sounds",
-    Dead = "play ouch sounds",
-    Slasher = "play slasher sounds",
-    TheStalker = "play ahh fresh meat sound",
-    PatientZero = "play patient zero sounds",
-    Employee = "play walkie-talkie sounds",
-    REALLYFAST = "play car revving sounds",
-    pingus = "play pingus sounds",
-}
+-- local roleswithsounds = {
+--     Crown = "play crown sounds",
+--     FunnyBomb = "play screaming sounds",
+--     Dead = "play ouch sounds",
+--     Slasher = "play slasher sounds",
+--     TheStalker = "play ahh fresh meat sound",
+--     PatientZero = "play patient zero sounds",
+--     Employee = "play walkie-talkie sounds",
+--     REALLYFAST = "play car revving sounds",
+--     pingus = "play pingus sounds",
+-- }
 
-local tab_sounds_slider_delay = tab_sounds.newslider({
-    title = "delay between sounds",
-    min=0,
-    max=5,
-    increment = 0.05,
+-- local tab_sounds_slider_delay = tab_sounds.newslider({
+--     title = "delay between sounds",
+--     min=0,
+--     max=5,
+--     increment = 0.05,
+--     default = 1,
+-- })
+
+-- wow nice lazy copy and paste
+
+function playsound(sound,parent,pitchdeviation,replicate)
+   --utils.PlaySound(sound,parent,pitchdeviation,replicate)
+   sfxevent:Fire(sound,parent,pitchdeviation,replicate)
+end
+
+local tab_sounds_slider_amount = tab_sounds.newslider({
+    title = "sound amount",
+    min=1,
+    max=100,
+    increment = 1,
     default = 1,
+})
+local tab_sounds_slider_pitch = tab_sounds.newslider({
+    title = "random pitch variation",
+    min=0,
+    max=20,
+    increment = 0.01,
+    default = 0,
+})
+
+local tab_sounds_slider_parented = tab_sounds.newslider({
+    title = "sound parent mode",
+    min=0,
+    max=3,
+    increment = 1,
+    default = 0,
+    textmode = {
+        [0] = "player head",
+        [1] = "global",
+        [2] = "map",
+        [3] = "all players",
+    },
 })
 
 local tab_sounds_toggle_muterole = tab_sounds.newtoggle({title="mute role changed noise"})
+tab_sounds.newlabel({title="reminder: add drop downs"})
 
-local lastrealrole = playerrole.Value
-local rolesoundsbeingplayed = {}
-for rolename,fakename in pairs(roleswithsounds) do
-    local isenabled = false
+local soundbuttonswitchcolors = false
+for i,v in pairs(game.ReplicatedStorage:GetDescendants()) do
+    if v:IsA("Sound") and not (v:GetAttribute("CantReplicate") or v:GetAttribute("DontReplicate")) then
+        local fullname = string.sub(v:GetFullName(),19,v:GetFullName():len())
+        
+        if v.Looped then
+            fullname = fullname.." (LOOPING)"
+        end
+        
+        local bbcolor
 
-    tab_sounds.newtoggle({
-        title = fakename,
-        color = Color3.fromRGB(190,135,90),
-    onclick = function(val)
-        isenabled = val
-        table.insert(rolesoundsbeingplayed,rolename)
-
-        while isenabled do
-            playerrole.Value = "Random"
-            playerrole.Value = rolename
-            local delaytime = math.clamp(tab_sounds_slider_delay.getvalue(),0,math.huge)
-            local totaltime = 0
-
-            -- ahh yes, the loop within a loop nothing could ever go wrong!
-            if delaytime > 0 then
-                while totaltime < delaytime do
-                    totaltime += task.wait()
-                    delaytime = math.clamp(tab_sounds_slider_delay.getvalue(),0,math.huge)
-
-                    if not isenabled then
-                        break
-                    end
-                end
+        if soundbuttonswitchcolors then
+            if v.Looped then
+                bbcolor = Color3.fromRGB(225,175,140)
             else
-                task.wait()
+                bbcolor = Color3.fromRGB(125,170,200)
+            end
+        else    
+            if v.Looped then
+                bbcolor = Color3.fromRGB(205,160,160)
+            else
+                bbcolor = Color3.fromRGB(150,170,185)
             end
         end
-        table.remove(rolesoundsbeingplayed,table.find(rolesoundsbeingplayed,rolename))
 
-        if #rolesoundsbeingplayed <= 0 then
-            playerrole.Value = lastrealrole or "Runner"
-        end
-    end})
+        soundbuttonswitchcolors = not soundbuttonswitchcolors
+        local sfxplayerbutton = tab_sounds.newbutton({
+            title=fullname,
+            color = bbcolor,
+            onclick=function()
+            local sfxparentmode = tab_sounds_slider_parented.getvalue()
+            local sfxparent
+
+            if sfxparentmode == 0 then
+                sfxparent = plr.Character:FindFirstChild("Head")
+            elseif sfxparentmode == 1 then
+                sfxparent = workspace
+            elseif sfxparentmode == 2 then
+                sfxparent = currentmap:FindFirstChildOfClass("Folder")
+            elseif sfxparentmode == 3 then
+                sfxparent = nil
+            end
+
+            for i=1,tab_sounds_slider_amount.getvalue() do
+                task.spawn(function()
+                    if sfxparentmode == 3 then
+                        for _,wplr in pairs(game.Players:GetPlayers()) do
+                            local wchar = wplr.Character
+
+                            if wchar then
+                                playsound(v,wchar:FindFirstChild("Head"),tab_sounds_slider_pitch.getvalue(),true)
+                            end
+                        end
+                    else
+                        playsound(v,sfxparent,tab_sounds_slider_pitch.getvalue(),true)
+                    end
+                end)
+            end
+        end})
+    end
 end
 
-local tab_sounds_textbox_customrolename = tab_sounds.newtextbox({title="custom role sounds name"})
+-- local lastrealrole = playerrole.Value
+-- local rolesoundsbeingplayed = {}
+-- for rolename,fakename in pairs(roleswithsounds) do
+--     local isenabled = false
 
-local tab_sounds_toggle_customrole = tab_sounds.newtoggle({
-        title = "play custom role sounds",
-        color = Color3.fromRGB(200,160,90),
-    onclick = function(val)
-        local rolename = tab_sounds_textbox_customrolename.getvalue()
-        isenabled = val
-        table.insert(rolesoundsbeingplayed,rolename)
+--     tab_sounds.newtoggle({
+--         title = fakename,
+--         color = Color3.fromRGB(190,135,90),
+--     onclick = function(val)
+--         isenabled = val
+--         table.insert(rolesoundsbeingplayed,rolename)
 
-        while isenabled do
-            playerrole.Value = "Random"
-            playerrole.Value = rolename
-            local delaytime = math.clamp(tab_sounds_slider_delay.getvalue(),0,math.huge)
-            local totaltime = 0
+--         while isenabled do
+--             playerrole.Value = "Random"
+--             playerrole.Value = rolename
+--             local delaytime = math.clamp(tab_sounds_slider_delay.getvalue(),0,math.huge)
+--             local totaltime = 0
 
-            -- ahh yes, the loop within a loop nothing could ever go wrong!
-            if delaytime > 0 then
-                while totaltime < delaytime do
-                    totaltime += task.wait()
-                    delaytime = math.clamp(tab_sounds_slider_delay.getvalue(),0,math.huge)
+--             -- ahh yes, the loop within a loop nothing could ever go wrong!
+--             if delaytime > 0 then
+--                 while totaltime < delaytime do
+--                     totaltime += task.wait()
+--                     delaytime = math.clamp(tab_sounds_slider_delay.getvalue(),0,math.huge)
 
-                    if not isenabled then
-                        break
-                    end
-                end
-            else
-                task.wait()
-            end
-        end
-        table.remove(rolesoundsbeingplayed,table.find(rolesoundsbeingplayed,rolename))
+--                     if not isenabled then
+--                         break
+--                     end
+--                 end
+--             else
+--                 task.wait()
+--             end
+--         end
+--         table.remove(rolesoundsbeingplayed,table.find(rolesoundsbeingplayed,rolename))
 
-        if #rolesoundsbeingplayed <= 0 then
-            playerrole.Value = lastrealrole or "Runner"
-        end
-end})
+--         if #rolesoundsbeingplayed <= 0 then
+--             playerrole.Value = lastrealrole or "Runner"
+--         end
+--     end})
+-- end
 
-playerrole.Changed:Connect(function()
-    local role = playerrole.Value
+-- local tab_sounds_textbox_customrolename = tab_sounds.newtextbox({title="custom role sounds name"})
+
+-- local tab_sounds_toggle_customrole = tab_sounds.newtoggle({
+--         title = "play custom role sounds",
+--         color = Color3.fromRGB(200,160,90),
+--     onclick = function(val)
+--         local rolename = tab_sounds_textbox_customrolename.getvalue()
+--         isenabled = val
+--         table.insert(rolesoundsbeingplayed,rolename)
+
+--         while isenabled do
+--             playerrole.Value = "Random"
+--             playerrole.Value = rolename
+--             local delaytime = math.clamp(tab_sounds_slider_delay.getvalue(),0,math.huge)
+--             local totaltime = 0
+
+--             -- ahh yes, the loop within a loop nothing could ever go wrong!
+--             if delaytime > 0 then
+--                 while totaltime < delaytime do
+--                     totaltime += task.wait()
+--                     delaytime = math.clamp(tab_sounds_slider_delay.getvalue(),0,math.huge)
+
+--                     if not isenabled then
+--                         break
+--                     end
+--                 end
+--             else
+--                 task.wait()
+--             end
+--         end
+--         table.remove(rolesoundsbeingplayed,table.find(rolesoundsbeingplayed,rolename))
+
+--         if #rolesoundsbeingplayed <= 0 then
+--             playerrole.Value = lastrealrole or "Runner"
+--         end
+-- end})
+
+-- playerrole.Changed:Connect(function()
+--     local role = playerrole.Value
     
-    if role ~= "Random" and not table.find(rolesoundsbeingplayed,role) then
-        lastrealrole = role
-    end
-end)
+--     if role ~= "Random" and not table.find(rolesoundsbeingplayed,role) then
+--         lastrealrole = role
+--     end
+-- end)
 
 local tab_hacks_toggle_staticvault = tab_hacks.newtoggle({title="enable static vault height"})
 local tab_hacks_toggle_accuratevault = tab_hacks.newtoggle({title="accurate static vault"})
@@ -307,7 +499,7 @@ local tab_hacks_toggle_showvaultray
 tab_hacks_toggle_showvaultray = tab_hacks.newtoggle({title="always show vault raycast",
 onclick=function(bool)
     if bool then
-        local camera = workspace.CurrentCamera
+        camera = workspace.CurrentCamera
         local vaultraydir = Vector3.new(0,-3.25,0)
         local ysize = math.abs(vaultraydir.Y)
 
@@ -371,6 +563,100 @@ onclick=function(bool)
     end
 end})
 
+local tab_hacks_slider_tagbotrange
+local tab_hacks_slider_tagbotdelay
+local tab_hacks_toggle_tagbotteams
+local tab_hacks_toggle_tagbotinvertkb
+local tab_hacks_slider_tagbotmode
+
+local tagbotcurrentlyenabled = false
+local tab_hacks_toggle_tagbot = tab_hacks.newtoggle({title="tag aura",onclick=function(bool)
+    tagbotcurrentlyenabled = bool
+
+    if bool then
+        while tagbotcurrentlyenabled do
+            local people = {}
+            local enemies = getenemies(playerrole.Value)
+            local char = plr.Character
+
+            for i,v in pairs(game.Players:GetPlayers()) do
+                if v.Character and v ~= plr then
+                    local cantagthisguy = false
+
+                    if not tab_hacks_toggle_tagbotteams.getvalue() then
+                        cantagthisguy = table.find(enemies,v.PlayerRole.Value)
+                    else
+                        cantagthisguy = true
+                    end
+
+                    if cantagthisguy then
+                        table.insert(people,{who=v,dist=v:DistanceFromCharacter(char:GetPivot().Position)})
+                    end
+                end
+            end
+
+            table.sort(people,function(a,b)
+                return a.dist < b.dist
+            end)
+
+            for i,v in pairs(people) do
+                local wchar = v.who.Character
+                task.spawn(function()
+                    if wchar and char and v.dist <= tab_hacks_slider_tagbotrange.getvalue() then
+                        local knockback
+                        local kbmode = tab_hacks_slider_tagbotmode.getvalue()
+                        
+                        if kbmode == 0 then
+                            knockback = (wchar:GetPivot().Position-char:GetPivot().Position).Unit
+                        elseif kbmode == 1 then
+                            knockback = camera.CFrame.LookVector
+                        elseif kbmode == 2 then
+                            knockback = Vector3.new(0,1,0)
+                        end
+
+                        if tab_hacks_toggle_tagbotinvertkb then
+                            knockback = -knockback
+                        end
+
+                        tagevent:InvokeServer(v.who.Character.Humanoid,knockback)
+                    end
+                end)
+            end
+
+            task.wait(tab_hacks_slider_tagbotdelay.getvalue())
+        end
+    end
+end})
+tab_hacks_slider_tagbotrange = tab_hacks.newslider({
+    title = "tag aura range",
+    min=8.5,
+    max=23,
+    increment = 0.1,
+    default = 8.5,
+})
+tab_hacks_slider_tagbotdelay = tab_hacks.newslider({
+    title = "tag aura delay",
+    min=0,
+    max=5,
+    increment = 0.1,
+    default = 1,
+})
+tab_hacks_toggle_tagbotteams = tab_hacks.newtoggle({title="tag aura target everyone"})
+tab_hacks_toggle_tagbotinvertkb = tab_hacks.newtoggle({title="invert tag aura knockback"})
+
+tab_hacks_slider_tagbotmode = tab_hacks.newslider({
+    title = "tag aura knockback mode",
+    min=0,
+    max=2,
+    increment = 1,
+    default = 0,
+    textmode = {
+        [0] = "distance",
+        [1] = "camera",
+        [2] = "upward",
+    },
+})
+
 local tab_hacks_toggle_teleroll = tab_hacks.newtoggle({title="teleport roll"})
 local tab_hacks_toggle_velroll = tab_hacks.newtoggle({title="velocity roll"})
 local tab_hacks_toggle_autoroll = tab_hacks.newtoggle({title="automatic roll"})
@@ -381,6 +667,11 @@ local tab_hacks_slider_autorollvel = tab_hacks.newslider({
     increment = 0.1,
     default = -42,
 })
+local tab_hacks_toggle_autotrimp = tab_hacks.newtoggle({title="automatic trimp"})
+local tab_hacks_toggle_runinalldirs = tab_hacks.newtoggle({title="run in all directions",
+onclick=function(bool)
+    codemodifiers:SetAttribute("RunInAllDirections",bool)
+end})
 
 local tab_hacks_toggle_noknockback = tab_hacks.newtoggle({title="no knockback"})
 local tab_hacks_toggle_antifreeze = tab_hacks.newtoggle({title="anti-freeze",
@@ -396,7 +687,7 @@ onclick=function(bool)
 end})
 local tab_hacks_toggle_controlzip
 tab_hacks_toggle_controlzip = tab_hacks.newtoggle({
-    title="controllable ziplines (brocken)",
+    title="controllable ziplines (client side lol)",
     onclick=function(bool)
     local char = plr.Character
 
@@ -481,35 +772,52 @@ votingvalue.Changed:Connect(updatetagteammates)
 playerrole.Changed:Connect(updatetagteammates)
 
 tab_hacks_toggle_teamtag = tab_hacks.newtoggle({
-    title="tag through teammates (fix pls)",
+    title="tag through teammates (fix pls) (fix pls x2)",
     onclick=function(bool)
     updatetagteammates(bool)
 end})
 
 local slidermodifiers = {
     JumpPowerMultiplier = {"jump power multplier",0,5},
-    WalkSpeedMultiplier = {"walking speed multplier",0,5},
+    WalkSpeedMultiplier = {"speed multplier",0,5},
     AccelerationMultiplier = {"acceleration multiplier",0,10},
     TagCooldown = {"tag cooldown multiplier",0,2},
     RangeMultiplier = {"range multplier",0,10},
-    MomentumMultiplier = {"momentum multiplier",0,10},
+    TagRayRows = {"tag ray rows",0,5,1,1},
+    TagRayNumber = {"tag ray count",1,10,9,1},
+    TagRaySpread = {"tag ray spread",0,10,1,1},
+    MomentumMultiplier = {"universal momentum multiplier",0,10},
+    MomentumSpeed = {"momentum speed multiplier",0,10},
+    MomentumDecay = {"momentum decay on ground",0,2},
+    MomentumMidair = {"momentum decay in air",0,2},
+    VaultStackingMomentumMultiplier = {"vault stacking multiplier",0,3},
     GravityMultiplier = {"gravity multiplier",0,2},
     RailGrindMultiplier = {"railing speed multplier",0,3},
     RollSpeedMultiplier = {"roll speed boost multplier",0,5},
     RollBoostMultiplier = {"roll jump boost multplier",0,5},
     WindowSmashMultiplier = {"window smash boost multiplier",-5,1},
+    SlideSpeedMultiplier = {"slide speed multiplier",0,10},
+    SlideSteerMultiplier = {"slide steer multiplier",0,10},
+    SlideJumpMultiplier = {"slide jump power multiplier",0,10},
+    SlopesMultiplier = {"slope slide multiplier",0,10},
+    WallrunCooldown = {"wall run cooldown",0,1,0.66},
 }
 
 local togglemodifiers = {
     EnableWallrunning = "wallrun everywhere",
-    EnableParrying = "enable parrying (does nothing)",
+    InfiniteSlides = "infinite slide duration",
     DisableRailGrinding = "disable rails",
     DisableSwingBars = "disable swing bars",
     DisableRolling = "disable rolling",
+    DisableVaulting = "disable vaulting",
     DisableWindowSmashing = "disable window smashing",
     DisableSprinting = "disable sprinting",
+    DisableWalking = "disable walking",
     DisableSliding = "disable sliding",
     DisableVaulting = "disable vaulting",
+    DisableAllUtgMovement = "disable all utg movement",
+    RotateInMoveDirection = "rotate in move direction (fun)",
+
 }
 
 local slidermotifierswitchcolors = false
@@ -519,8 +827,8 @@ for modname,v in pairs(slidermodifiers) do
         color = slidermotifierswitchcolors and Color3.fromRGB(210,220,210) or Color3.fromRGB(160,170,160),
         min = v[2],
         max = v[3],
-        increment = 0.1,
-        default = 1,
+        increment = v[5] or 0.1,
+        default = v[4] or 1,
     onchanged = function(val)
         codemodifiers:SetAttribute(modname,val)
     end})
@@ -612,6 +920,7 @@ function characteradded(char)
     local animatescript = scripts:WaitForChild("animation"):WaitForChild("Animate")
     local momentumleanscript = scripts:WaitForChild("visuals"):WaitForChild("MomentumLeaning")
     rayparams.FilterDescendantsInstances = {char}
+    camera = workspace.CurrentCamera
 
     local function rootinstanceadded(v)
         if (v.Name == "Vault" or v.Name == "HighVault") then
