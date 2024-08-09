@@ -650,7 +650,7 @@ tab_hacks_toggle_tagbotinvertkb = tab_hacks.newtoggle({title="invert tag aura kn
 tab_hacks_slider_tagbotmode = tab_hacks.newslider({
     title = "tag aura knockback mode",
     min=0,
-    max=2,
+    max=3,
     increment = 1,
     default = 0,
     textmode = {
