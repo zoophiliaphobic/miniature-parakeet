@@ -372,7 +372,7 @@ for i,v in pairs(game.ReplicatedStorage:GetDescendants()) do
                             local wchar = wplr.Character
 
                             if wchar then
-                                playsound(v,wchar:FindFirstChild("Head"),tab_sounds_slider_pitch.getvalue(),true)
+                                playsound(v,wchar:FindFirstChild("HumanoidRootPart"),tab_sounds_slider_pitch.getvalue(),true)
                             end
                         end
                     else
@@ -607,14 +607,14 @@ local tab_hacks_toggle_tagbot = tab_hacks.newtoggle({title="tag aura",onclick=fu
                         local kbmode = tab_hacks_slider_tagbotmode.getvalue()
                         
                         if kbmode == 0 then
-                            knockback = (wchar:GetPivot().Position-char:GetPivot().Position).Unit
+                            knockback = -(char:GetPivot().Position-wchar:GetPivot().Position).Unit
                         elseif kbmode == 1 then
                             knockback = camera.CFrame.LookVector
                         elseif kbmode == 2 then
                             knockback = Vector3.new(0,1,0)
                         end
 
-                        if tab_hacks_toggle_tagbotinvertkb then
+                        if tab_hacks_toggle_tagbotinvertkb.getvalue() then
                             knockback = -knockback
                         end
 
