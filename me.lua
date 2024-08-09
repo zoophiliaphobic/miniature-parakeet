@@ -595,13 +595,6 @@ local tab_hacks_toggle_tagbot = tab_hacks.newtoggle({title="tag aura",onclick=fu
                     elseif tagmode == 3 then
                         cantagthisguy = playerrole.Value == wplrrole
                     end
-
-                    if not tab_hacks_toggle_tagbotteams.getvalue() then
-                        cantagthisguy = table.find(enemies,v.PlayerRole.Value)
-                    else
-                        cantagthisguy = true
-                    end
-
                     if cantagthisguy then
                         table.insert(people,{who=v,dist=v:DistanceFromCharacter(char:GetPivot().Position)})
                     end
