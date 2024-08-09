@@ -1,4 +1,5 @@
 local plr = game.Players.LocalPlayer
+local mouse = plr:GetMouse()
 local camera = workspace.CurrentCamera
 local utgsettings = plr:WaitForChild("Options")
 local playergui = plr:WaitForChild("PlayerGui")
@@ -612,6 +613,8 @@ local tab_hacks_toggle_tagbot = tab_hacks.newtoggle({title="tag aura",onclick=fu
                             knockback = camera.CFrame.LookVector
                         elseif kbmode == 2 then
                             knockback = Vector3.new(0,1,0)
+                        elseif kbmode == 3 then
+                            knockback = -(mouse.Hit-wchar:GetPivot().Position).Unit
                         end
 
                         if tab_hacks_toggle_tagbotinvertkb.getvalue() then
@@ -654,6 +657,7 @@ tab_hacks_slider_tagbotmode = tab_hacks.newslider({
         [0] = "distance",
         [1] = "camera",
         [2] = "upward",
+        [3] = "mouse",
     },
 })
 
@@ -667,7 +671,7 @@ local tab_hacks_slider_autorollvel = tab_hacks.newslider({
     increment = 0.1,
     default = -42,
 })
-local tab_hacks_toggle_autotrimp = tab_hacks.newtoggle({title="automatic trimp"})
+local tab_hacks_toggle_autotrimp = tab_hacks.newtoggle({title="automatic trimp (not done at all)"})
 local tab_hacks_toggle_runinalldirs = tab_hacks.newtoggle({title="run in all directions",
 onclick=function(bool)
     codemodifiers:SetAttribute("RunInAllDirections",bool)
