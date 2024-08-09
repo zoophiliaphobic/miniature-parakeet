@@ -168,7 +168,7 @@ function getenemies(rolename)
 
     if #enemies <= minimumamt then
         for i,v in pairs(playerhighlights:GetChildren()) do
-            if v.Name ~= rolename then
+            if v.Name ~= rolename and #v:GetChildren() > 0 then
                 table.insert(enemies,v.Name)
             end
         end
@@ -566,9 +566,9 @@ end})
 
 local tab_hacks_slider_tagbotrange
 local tab_hacks_slider_tagbotdelay
-local tab_hacks_toggle_tagbotteams
 local tab_hacks_toggle_tagbotinvertkb
 local tab_hacks_slider_tagbotmode
+local tab_hacks_slider_tagbottagmode
 
 local tagbotcurrentlyenabled = false
 local tab_hacks_toggle_tagbot = tab_hacks.newtoggle({title="tag aura",onclick=function(bool)
@@ -580,9 +580,21 @@ local tab_hacks_toggle_tagbot = tab_hacks.newtoggle({title="tag aura",onclick=fu
             local enemies = getenemies(playerrole.Value)
             local char = plr.Character
 
+            local tagmode = tab_hacks_slider_tagbottagmode.getvalue()
             for i,v in pairs(game.Players:GetPlayers()) do
                 if v.Character and v ~= plr then
+                    local wplrrole = v.PlayerRole.Value
                     local cantagthisguy = false
+
+                    if tagmode == 0 then
+                        cantagthisguy = true
+                    elseif tagmode == 1 then
+                        cantagthisguy = table.find(enemies,wplrrole)
+                    elseif tagmode == 2 then
+                        cantagthisguy = not table.find(enemies,wplrrole)
+                    elseif tagmode == 3 then
+                        cantagthisguy = playerrole.Value == wplrrole
+                    end
 
                     if not tab_hacks_toggle_tagbotteams.getvalue() then
                         cantagthisguy = table.find(enemies,v.PlayerRole.Value)
@@ -644,7 +656,21 @@ tab_hacks_slider_tagbotdelay = tab_hacks.newslider({
     increment = 0.1,
     default = 1,
 })
-tab_hacks_toggle_tagbotteams = tab_hacks.newtoggle({title="tag aura target everyone"})
+
+tab_hacks_slider_tagbottagmode = tab_hacks.newslider({
+    title = "tag aura target mode",
+    min=0,
+    max=3,
+    increment = 1,
+    default = 0,
+    textmode = {
+        [0] = "everyone",
+        [1] = "opponents",
+        [2] = "friends",
+        [3] = "same role",
+    },
+})
+
 tab_hacks_toggle_tagbotinvertkb = tab_hacks.newtoggle({title="invert tag aura knockback"})
 
 tab_hacks_slider_tagbotmode = tab_hacks.newslider({
