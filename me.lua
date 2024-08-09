@@ -630,7 +630,7 @@ end})
 tab_hacks_slider_tagbotrange = tab_hacks.newslider({
     title = "tag aura range",
     min=8.5,
-    max=23,
+    max=30,
     increment = 0.1,
     default = 8.5,
 })
