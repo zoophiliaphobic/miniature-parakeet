@@ -707,7 +707,7 @@ local tab_hacks_slider_autorollvel = tab_hacks.newslider({
     increment = 0.1,
     default = -42,
 })
-local tab_hacks_toggle_autotrimp = tab_hacks.newtoggle({title="automatic trimp (not done at all)"})
+local tab_hacks_toggle_autotrimp = tab_hacks.newtoggle({title="automatic trimp"})
 local tab_hacks_toggle_runinalldirs = tab_hacks.newtoggle({title="run in all directions",
 onclick=function(bool)
     codemodifiers:SetAttribute("RunInAllDirections",bool)
