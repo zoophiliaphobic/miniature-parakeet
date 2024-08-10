@@ -31,6 +31,11 @@ local window = library.createwindow({title="welcome! press ` to close/open"})
 local rayparams = RaycastParams.new()
 rayparams.RespectCanCollide = true
 
+local maponlyrayparams = RaycastParams.new()
+maponlyrayparams.FilterType = Enum.RaycastFilterType.Include
+maponlyrayparams.FilterDescendantsInstances = {currentmap}
+maponlyrayparams.RespectCanCollide = true
+
 local hurtfulparts = {}
 local fakehurtparts = {}
 
@@ -569,6 +574,9 @@ local tab_hacks_slider_tagbotdelay
 local tab_hacks_toggle_tagbotinvertkb
 local tab_hacks_slider_tagbotmode
 local tab_hacks_slider_tagbottagmode
+local tab_hacks_toggle_tagbotplaysfx
+
+local randomhitsounds = soundsfolder:WaitForChild("FatalFractal"):WaitForChild("HitSounds"):GetChildren()
 
 local tagbotcurrentlyenabled = false
 local tab_hacks_toggle_tagbot = tab_hacks.newtoggle({title="tag aura",onclick=function(bool)
@@ -621,13 +629,19 @@ local tab_hacks_toggle_tagbot = tab_hacks.newtoggle({title="tag aura",onclick=fu
                             knockback = Vector3.new(0,1,0)
                         elseif kbmode == 3 then
                             knockback = (mouse.Hit.Position-wchar:GetPivot().Position).Unit
+                        elseif kbmode == 4 then
+                            knockback = Vector3.new(Random.new():NextNumber(-1,1),Random.new():NextNumber(-1,1),Random.new():NextNumber(-1,1))
                         end
 
                         if tab_hacks_toggle_tagbotinvertkb.getvalue() then
                             knockback = -knockback
                         end
 
-                        tagevent:InvokeServer(v.who.Character.Humanoid,knockback)
+                        if tab_hacks_toggle_tagbotplaysfx.getvalue() then
+                            playsound(randomhitsounds[math.random(1,#randomhitsounds)],wchar.PrimaryPart,0.1,true)
+                        end
+
+                        tagevent:InvokeServer(wchar.Humanoid,knockback)
                     end
                 end)
             end
@@ -647,7 +661,7 @@ tab_hacks_slider_tagbotdelay = tab_hacks.newslider({
     title = "tag aura delay",
     min=0,
     max=5,
-    increment = 0.1,
+    increment = 0.01,
     default = 1,
 })
 
@@ -670,7 +684,7 @@ tab_hacks_toggle_tagbotinvertkb = tab_hacks.newtoggle({title="invert tag aura kn
 tab_hacks_slider_tagbotmode = tab_hacks.newslider({
     title = "tag aura knockback mode",
     min=0,
-    max=3,
+    max=4,
     increment = 1,
     default = 0,
     textmode = {
@@ -678,8 +692,10 @@ tab_hacks_slider_tagbotmode = tab_hacks.newslider({
         [1] = "camera",
         [2] = "upward",
         [3] = "mouse",
+        [4] = "random",
     },
 })
+tab_hacks_toggle_tagbotplaysfx = tab_hacks.newtoggle({title="play sounds tag aura"})
 
 local tab_hacks_toggle_teleroll = tab_hacks.newtoggle({title="teleport roll"})
 local tab_hacks_toggle_velroll = tab_hacks.newtoggle({title="velocity roll"})
@@ -824,7 +840,7 @@ local slidermodifiers = {
     SlideSteerMultiplier = {"slide steer multiplier",0,10},
     SlideJumpMultiplier = {"slide jump power multiplier",0,10},
     SlopesMultiplier = {"slope slide multiplier",0,10},
-    WallrunCooldown = {"wall run cooldown",0,1,0.66},
+    WallrunCooldown = {"wall run cooldown",0,1,0.66,0.01},
 }
 
 local togglemodifiers = {
@@ -990,6 +1006,29 @@ function characteradded(char)
                 --char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(vel.X*1,(2*height)^2+(4*height)+24,vel.Z*1)
                 
                 char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(vel.X*1,yvelocity,vel.Z*1)
+            end
+        end
+
+        if v.Name == "Roll" then
+            if tab_hacks_toggle_autotrimp.getvalue() then
+                for i=1,5 do
+                    task.wait(0.075)
+                    local lv = root.CFrame.LookVector
+                    local trimpray = workspace:Spherecast((root.Position-Vector3.new(0,1.75,0)-lv*0.5),2,lv*2.75,maponlyrayparams)
+
+                    if trimpray then
+                        local vel = char.PrimaryPart.AssemblyLinearVelocity
+                        
+                        for i=1,2 do
+                            char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(
+                            vel.X*0.5,
+                            (math.abs(vel.X)+math.abs(vel.Z))*0.9,
+                            vel.Z*0.5)
+                            task.wait(0.05)
+                        end
+                        break
+                    end
+                end
             end
         end
 
