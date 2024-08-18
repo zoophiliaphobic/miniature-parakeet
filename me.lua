@@ -994,7 +994,7 @@ function characteradded(char)
                     end)
                 end
 
-                local yvelocity = 19.51*(height^1.02417)
+                local yvelocity = 30*height/1.5
                 
                 if not tab_hacks_toggle_lowvault.getvalue() then
                     yvelocity = math.clamp(yvelocity,30,math.huge)
@@ -1005,7 +1005,7 @@ function characteradded(char)
                 -- ,vel.Z*1)
                 --char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(vel.X*1,(2*height)^2+(4*height)+24,vel.Z*1)
                 
-                char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(vel.X*1,yvelocity,vel.Z*1)
+                char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(vel.X,yvelocity,vel.Z)-root.LookVector*2
             end
         end
 
