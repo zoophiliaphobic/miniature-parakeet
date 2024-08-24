@@ -216,19 +216,6 @@ local tab_fun_toggle_expswing = tab_fun.newtoggle({
 })
 local tab_fun_toggle_slowmotion = tab_fun.newtoggle({title="slow motion"})
 
-tab_fun.newbutton({
-    title = "open utg report website",
-    onclick = function()
-        ingamemenu.Enabled = true
-        browser.Size = UDim2.new(0.65,0,0.65,0)
-        browser.Frame.Size = UDim2.new(1,0,1,0)
-
-        for i,v in pairs(utgsites:GetChildren()) do
-            v.Visible = v.Name == "UTGReport"
-        end
-    end
-})
-
 local tab_fun_slider_cloneamt = tab_fun.newslider({
     title = "parkour script duplicate amount",
     min=1,
