@@ -991,7 +991,8 @@ function characteradded(char)
                 -- height <= 1.5 and 30 or -0.6532+19.9402*height
                 -- ,vel.Z*1)
                 --char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(vel.X*1,(2*height)^2+(4*height)+24,vel.Z*1)
-                
+
+                waitframe()
                 char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(vel.X,yvelocity,vel.Z)-root.LookVector*2
             end
         end
