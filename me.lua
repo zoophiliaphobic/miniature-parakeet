@@ -1,108 +1,42 @@
 local plr = game.Players.LocalPlayer
 local mouse = plr:GetMouse()
+local char = plr.Character or plr.CharacterAdded:Wait()
+
+-- local rollms = -10/1000
+
+-- print(1.3 + ((0.1 - math.clamp(rollms,-math.huge,0.1)) * 3.5) ^ 0.85)
+
+local hum = char and char:FindFirstChildOfClass("Humanoid")
+local root = char and char:FindFirstChild("HumanoidRootPart")
+local head = char and char:FindFirstChild("Head")
 local camera = workspace.CurrentCamera
-local utgsettings = plr:WaitForChild("Options")
+
+local role = plr:WaitForChild("PlayerRole")
+
 local playergui = plr:WaitForChild("PlayerGui")
-local debugstatsgui = playergui:WaitForChild("Debug")
-local movementstats = debugstatsgui:WaitForChild("TextLabel")
-local ingamemenu = playergui:WaitForChild("InGameMenu")
-local browser = ingamemenu:WaitForChild("Browser")
-local utgsites = browser:WaitForChild("Frame"):WaitForChild("Content"):WaitForChild("Site")
+local debugui = nil
+local debugvalues = nil
+local debugprint = nil
+local fakevalues = nil
+
+local modscc = plr:WaitForChild("Modifiers")
+local modifiersfolder = modscc:WaitForChild("VIP")
+local codemodifiersfolder = modscc:WaitForChild("Code")
+
+local currentmapfolder = workspace:WaitForChild("CurrentMap")
 
 local us = game:GetService("UserInputService")
+local rep = game:GetService("ReplicatedStorage")
 local runs = game:GetService("RunService")
-
-local votingvalue = game.ReplicatedStorage:WaitForChild("Values"):WaitForChild("Voting")
-local soundsfolder = game.ReplicatedStorage:WaitForChild("Sounds")
-
-local events = game.ReplicatedStorage:WaitForChild("Events")
-local sfxevent = events:WaitForChild("replication"):WaitForChild("SoundEvent")
-local tagevent = events:WaitForChild("game"):WaitForChild("tags"):WaitForChild("TagPlayer")
-
-local codemodifiers = plr.Modifiers.Code
-local playerrole = plr:WaitForChild("PlayerRole")
-
-local currentmap = workspace:WaitForChild("CurrentMap")
-local playerhighlights = workspace:WaitForChild("playerHighlights")
+local mps = game:GetService("MarketplaceService")
 
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zoophiliaphobic/psychic-octo-pancake/main/library.lua"))()
 local window = library.createwindow({title="welcome! press ` to close/open"})
 
-local rayparams = RaycastParams.new()
-rayparams.RespectCanCollide = true
-
-local maponlyrayparams = RaycastParams.new()
-maponlyrayparams.FilterType = Enum.RaycastFilterType.Include
-maponlyrayparams.FilterDescendantsInstances = {currentmap}
-maponlyrayparams.RespectCanCollide = true
-
-local hurtfulparts = {}
-local fakehurtparts = {}
-
-local randomtitles = {
-    "riker give me dev role",
-    "jasper give me developer",
-    "/give me admin",
-    "iamroie2b mode activated",
-    "they added wallrunning",
-    "new route discovered??",
-    "pro mods",
-    "utg destroyer!!",
-    "tagmin 2.0",
-    "telob gui",
-    "created by telob ;)",
-    "competitive tag league gui",
-    "utghub",
-    "ultimate utg gui",
-    "deluxe premium advanced untitled tag game graphical user interface",
-    "utg gui",
-    "revamp",
-    "cheat_engine.exe",
-    "utg://hacks",
-    "vote slasher you noobs",
-    "/btools all",
-    "this cost $25 btw",
-    "pingus",
-    "whereabouts gui :)",
-    "stop banning me",
-    "report!! hacker!!",
-    "hey there",
-    "yall dont know me",
-    "get this guy in #exploiter-reports",
-    "this {user} guy looks weird",
-    "hello {user} :)",
-    "{user} gui",
-    "@{user}",
-    "wire me $30 for the premium gui",
-    "infinite tags generator",
-    "snarp",
-    "wiser actually sucks 1v1 me scrub",
-    "1v1 me {user}",
-    "@colde ban this guy",
-    "{user} is the real ultimateutgplayer",
-    "thx to chamber for helping me",
-    "credits to blazing for this gui",
-    "new debug menu sucks",
-    '"they added wallrunning" ahh gui',
-    ":steam-happy:",
-    "if only we had remote spy...",
-    "S tier gui",
-}
-
-window.visibilitychanged = function(opened)
-    if opened then
-        local newtitle = randomtitles[math.random(1,#randomtitles)]
-        newtitle = string.gsub(newtitle,"{user}",plr.DisplayName)
-        window.changetitle(newtitle)
-    end
-end
-
-function waitframe()
-    runs.RenderStepped:Wait()
-end
-
 local UTGenemymatrix = {
     ["All"] = {"Neutral"},
+
+    ["Runner"] = {"Frozen"},
 
     ["Freezer"] = {"Runner","Frozen"},
     ["Chiller"] = {"Runner"},
@@ -145,6 +79,7 @@ local UTGenemymatrix = {
     ["CloakInfected"] = {"Runner"},
     ["BabyInfected"] = {"Runner"},
 
+    ["Crown"] = {"Frozen"},
     ["Peasant"] = {"Crown","Knight"},
     ["Knight"] = {"Peasant"},
     ["pingus"] = {"Runner"},
@@ -182,1132 +117,966 @@ function getenemies(rolename)
     return enemies
 end
 
+function getmultipliedmodifier(attname,default)
+    local val = default or 1
+
+    for i,v in pairs(modscc:GetChildren()) do
+        local amt = v:GetAttribute(attname)
+
+        if amt then
+            val *= amt
+        end
+    end
+
+    return val
+end
+
+local nocolconstraints = {}
+function disableplrcollision()
+    if char then
+        for _,who in pairs(game.Players:GetPlayers()) do
+            local hc = who.Character
+
+            if hc then
+                for _,enemylimb in pairs(hc:GetChildren()) do
+                    if enemylimb:IsA("BasePart") then
+                        for _,limb in pairs(char:GetChildren()) do
+                            if limb:IsA("BasePart") then
+                                local colcons = Instance.new("NoCollisionConstraint")
+                                colcons.Part0 = limb
+                                colcons.Part1 = enemylimb
+                                colcons.Parent = limb
+                                table.insert(nocolconstraints,colcons)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+function getactualvaultheight()
+    local txt = debugvalues.Text
+    local find = string.find(txt,"vault height:")
+    local cut = string.sub(txt,find+14,find+17)
+    return tonumber(cut)
+end
+
+local vaultparams = RaycastParams.new()
+vaultparams.CollisionGroup = "Player"
+vaultparams.FilterDescendantsInstances = {char}
+vaultparams.FilterType = Enum.RaycastFilterType.Exclude
+
 local tab_hacks = window.createtab({title="hacks"})
 local tab_mods = window.createtab({title="modifications"})
 local tab_sounds = window.createtab({title="sounds"})
-local tab_fun = window.createtab({title="fun stuff"})
-local tab_maps = window.createtab({title="maps"})
+local tab_importing = window.createtab({title="importing"})
 
-local tab_fun_toggle_emotemove = tab_fun.newtoggle({title="move while emoting (NEVER COMING BACK LOL LOL EZZZZZ)"})
-local tab_fun_toggle_movelean = tab_fun.newtoggle({
-    title="disable movement leaning",
-    onclick = function(val)
-        local char = plr.Character
+local flags = {
+    staticvaultactive = false,
+    staticvaultheight = 1.5,
+    staticvaultspoof = false,
+    staticvaultinnacurate = false,
+    staticshowreal = false,
+    antinullvault = false,
 
-        if char then
-            local leanscript = char.scripts.visuals.MomentumLeaning
-            leanscript.Disabled = val
-        end
-    end
-})
-local tab_fun_toggle_expswing = tab_fun.newtoggle({
-    title="experimental swinging",
-    onclick=function(val)
-        local map = currentmap:FindFirstChildOfClass("Folder")
+    svdetectladders = false,
+    svladderstrength = 0.5,
+    svladdercurve = 1,
 
-        if map then
-            for i,v in pairs(map:GetDescendants()) do
-                if v:GetAttribute("SwingBar") then
-                    v.Name = val and "ExperimentalSwingbar" or "Part"
-                end
-            end
-        end
-    end
-})
-local tab_fun_toggle_slowmotion = tab_fun.newtoggle({title="slow motion"})
+    showvaultcast = false,
+    autovault = false,
+    autovaultheight = 2.5,
 
-local tab_fun_slider_cloneamt = tab_fun.newslider({
-    title = "parkour script duplicate amount",
-    min=1,
-    max=500,
-    increment = 1,
-    default = 1,
-})
+    noknockback = false,
+    nocollision = false,
+    antifreeze = false,
+    bhop = false,
+    holdjump = false,
+    nomovelock = false,
 
-tab_fun.newbutton({
-    title = "start duplicating parkour scripts",
-    onclick = function()
-        local char = plr.Character
+    staticrollactive = false,
+    staticrollms = 8.33,
+    staticrollspoof = false,
+    staticrollshowreal = false,
 
-        if char then
-            local parkourscript = char.scripts.movement.Parkour
+    staticswingactive = false,
+    staticswingpercent = 100,
+    uncapswings = false,
 
-            for i=1,tab_fun_slider_cloneamt.getvalue() do
-                parkourscript:Clone().Parent = char.scripts.movement
-            end 
-        end
-    end
-})
+    aimassistactive = false,
+    aimassiststrength = 0.5,
 
-tab_fun.newbutton({
-    title = "delete duplicated parkour scripts",
-    onclick = function()
-        local char = plr.Character
+    ownsmisprintpasses = nil,
 
-        if char then
-            local mvm = char.scripts.movement
-            local safescript = mvm.Parkour
-            for i,v in pairs(mvm:GetChildren()) do
-                if v.Name == "Parkour" and v ~= safescript then
-                    v:Destroy()
-                end
-            end 
-        end
-    end
-})
+    emotemove = false,
 
--- local roleswithsounds = {
---     Crown = "play crown sounds",
---     FunnyBomb = "play screaming sounds",
---     Dead = "play ouch sounds",
---     Slasher = "play slasher sounds",
---     TheStalker = "play ahh fresh meat sound",
---     PatientZero = "play patient zero sounds",
---     Employee = "play walkie-talkie sounds",
---     REALLYFAST = "play car revving sounds",
---     pingus = "play pingus sounds",
--- }
+    mapmodelid = nil,
+    mapdoswings = false,
+    mapnoinvis = false,
+}
 
--- local tab_sounds_slider_delay = tab_sounds.newslider({
---     title = "delay between sounds",
---     min=0,
---     max=5,
---     increment = 0.05,
---     default = 1,
--- })
+tab_hacks.newlabel({title="-- vault hacks --"})
 
--- wow nice lazy copy and paste
-
-function playsound(sound,parent,pitchdeviation,replicate)
-   --utils.PlaySound(sound,parent,pitchdeviation,replicate)
-   sfxevent:Fire(sound,parent,pitchdeviation,replicate)
-end
-
-local tab_sounds_slider_amount = tab_sounds.newslider({
-    title = "sound amount",
-    min=1,
-    max=100,
-    increment = 1,
-    default = 1,
-})
-local tab_sounds_slider_pitch = tab_sounds.newslider({
-    title = "random pitch variation",
-    min=0,
-    max=20,
-    increment = 0.01,
-    default = 0,
-})
-
-local tab_sounds_slider_parented = tab_sounds.newslider({
-    title = "sound parent mode",
-    min=0,
-    max=3,
-    increment = 1,
-    default = 0,
-    textmode = {
-        [0] = "player head",
-        [1] = "global",
-        [2] = "map",
-        [3] = "all players",
-    },
-})
-
-local tab_sounds_toggle_muterole = tab_sounds.newtoggle({title="mute role changed noise"})
-tab_sounds.newlabel({title="reminder: add drop downs"})
-
-local soundbuttonswitchcolors = false
-for i,v in pairs(game.ReplicatedStorage:GetDescendants()) do
-    if v:IsA("Sound") and not (v:GetAttribute("CantReplicate") or v:GetAttribute("DontReplicate")) then
-        local fullname = string.sub(v:GetFullName(),19,v:GetFullName():len())
-        
-        if v.Looped then
-            fullname = fullname.." (LOOPING)"
-        end
-        
-        local bbcolor
-
-        if soundbuttonswitchcolors then
-            if v.Looped then
-                bbcolor = Color3.fromRGB(225,175,140)
-            else
-                bbcolor = Color3.fromRGB(125,170,200)
-            end
-        else    
-            if v.Looped then
-                bbcolor = Color3.fromRGB(205,160,160)
-            else
-                bbcolor = Color3.fromRGB(150,170,185)
-            end
-        end
-
-        soundbuttonswitchcolors = not soundbuttonswitchcolors
-        local sfxplayerbutton = tab_sounds.newbutton({
-            title=fullname,
-            color = bbcolor,
-            onclick=function()
-            local sfxparentmode = tab_sounds_slider_parented.getvalue()
-            local sfxparent
-
-            if sfxparentmode == 0 then
-                sfxparent = plr.Character:FindFirstChild("Head")
-            elseif sfxparentmode == 1 then
-                sfxparent = workspace
-            elseif sfxparentmode == 2 then
-                sfxparent = currentmap:FindFirstChildOfClass("Folder")
-            elseif sfxparentmode == 3 then
-                sfxparent = nil
-            end
-
-            for i=1,tab_sounds_slider_amount.getvalue() do
-                task.spawn(function()
-                    if sfxparentmode == 3 then
-                        for _,wplr in pairs(game.Players:GetPlayers()) do
-                            local wchar = wplr.Character
-
-                            if wchar then
-                                playsound(v,wchar:FindFirstChild("HumanoidRootPart"),tab_sounds_slider_pitch.getvalue(),true)
-                            end
-                        end
-                    else
-                        playsound(v,sfxparent,tab_sounds_slider_pitch.getvalue(),true)
-                    end
-                end)
-            end
-        end})
-    end
-end
-
--- local lastrealrole = playerrole.Value
--- local rolesoundsbeingplayed = {}
--- for rolename,fakename in pairs(roleswithsounds) do
---     local isenabled = false
-
---     tab_sounds.newtoggle({
---         title = fakename,
---         color = Color3.fromRGB(190,135,90),
---     onclick = function(val)
---         isenabled = val
---         table.insert(rolesoundsbeingplayed,rolename)
-
---         while isenabled do
---             playerrole.Value = "Random"
---             playerrole.Value = rolename
---             local delaytime = math.clamp(tab_sounds_slider_delay.getvalue(),0,math.huge)
---             local totaltime = 0
-
---             -- ahh yes, the loop within a loop nothing could ever go wrong!
---             if delaytime > 0 then
---                 while totaltime < delaytime do
---                     totaltime += task.wait()
---                     delaytime = math.clamp(tab_sounds_slider_delay.getvalue(),0,math.huge)
-
---                     if not isenabled then
---                         break
---                     end
---                 end
---             else
---                 task.wait()
---             end
---         end
---         table.remove(rolesoundsbeingplayed,table.find(rolesoundsbeingplayed,rolename))
-
---         if #rolesoundsbeingplayed <= 0 then
---             playerrole.Value = lastrealrole or "Runner"
---         end
---     end})
--- end
-
--- local tab_sounds_textbox_customrolename = tab_sounds.newtextbox({title="custom role sounds name"})
-
--- local tab_sounds_toggle_customrole = tab_sounds.newtoggle({
---         title = "play custom role sounds",
---         color = Color3.fromRGB(200,160,90),
---     onclick = function(val)
---         local rolename = tab_sounds_textbox_customrolename.getvalue()
---         isenabled = val
---         table.insert(rolesoundsbeingplayed,rolename)
-
---         while isenabled do
---             playerrole.Value = "Random"
---             playerrole.Value = rolename
---             local delaytime = math.clamp(tab_sounds_slider_delay.getvalue(),0,math.huge)
---             local totaltime = 0
-
---             -- ahh yes, the loop within a loop nothing could ever go wrong!
---             if delaytime > 0 then
---                 while totaltime < delaytime do
---                     totaltime += task.wait()
---                     delaytime = math.clamp(tab_sounds_slider_delay.getvalue(),0,math.huge)
-
---                     if not isenabled then
---                         break
---                     end
---                 end
---             else
---                 task.wait()
---             end
---         end
---         table.remove(rolesoundsbeingplayed,table.find(rolesoundsbeingplayed,rolename))
-
---         if #rolesoundsbeingplayed <= 0 then
---             playerrole.Value = lastrealrole or "Runner"
---         end
--- end})
-
--- playerrole.Changed:Connect(function()
---     local role = playerrole.Value
-    
---     if role ~= "Random" and not table.find(rolesoundsbeingplayed,role) then
---         lastrealrole = role
---     end
--- end)
-
-local tab_hacks_toggle_staticvault = tab_hacks.newtoggle({title="enable static vault height"})
-local tab_hacks_toggle_accuratevault = tab_hacks.newtoggle({title="accurate static vault"})
-local tab_hacks_slider_staticvault = tab_hacks.newslider({
-    title = "static vault height",
-    min=1.5,
-    max=2.75,
-    increment = 0.01,
-    default = 1.5,
-})
-local tab_hacks_toggle_spoofvault = tab_hacks.newtoggle({title="spoof vaulting debug"})
-local tab_hacks_toggle_lowvault = tab_hacks.newtoggle({title="allow <1.5 stud vault",
-onclick=function(bool)
-    tab_hacks_slider_staticvault.setmin(bool and 0 or 1.5)
+tab_hacks.newtoggle({title="enable static vault",onclick=function(val)
+    flags.staticvaultactive = val
 end})
-local tab_hacks_toggle_nullvault = tab_hacks.newtoggle({title="anti-nullvault"})
 
-local tab_hacks_toggle_autovault = tab_hacks.newtoggle({title="auto vault (innaccurate) (must have always show vault raycast enabled)"})
-local tab_hacks_slider_autovaultheight = tab_hacks.newslider({
-    title = "auto vault height",
-    min=0,
-    max=2.75,
-    increment = 0.01,
-    default = 1,
-})
+tab_hacks.newslider({title="static vault height",min=0,max=2.75,default=flags.staticvaultheight,increment=0.01,onchanged=function(val)
+    flags.staticvaultheight = tonumber(val)
+end})
 
-local vaultraypart
-local tab_hacks_toggle_showvaultray
-tab_hacks_toggle_showvaultray = tab_hacks.newtoggle({title="always show vault raycast",
-onclick=function(bool)
-    if bool then
-        camera = workspace.CurrentCamera
-        local vaultraydir = Vector3.new(0,-3.25,0)
-        local ysize = math.abs(vaultraydir.Y)
+tab_hacks.newtoggle({title="spoof static vault height",onclick=function(val)
+    flags.staticvaultspoof = val
+end})
 
-        vaultraypart = Instance.new("Part")
-        vaultraypart.Anchored = true
-        vaultraypart.CanCollide = false
-        vaultraypart.CanQuery = false
-        vaultraypart.Transparency = 1
-        vaultraypart.Size = Vector3.new(0.1,ysize,0.1)
-       
-        local lineadornment = Instance.new("LineHandleAdornment",vaultraypart)
-        lineadornment.Color3 = Color3.fromRGB(255,0,255)
-        lineadornment.Length = 3.25
-        lineadornment.Thickness = 3
-        lineadornment.Adornee = vaultraypart
-        lineadornment.CFrame = CFrame.new(0,ysize/2,0)*CFrame.Angles(math.rad(-90),0,0)
-        lineadornment.AlwaysOnTop = true
-        vaultraypart.Parent = workspace
+tab_hacks.newtoggle({title="show real vault height",onclick=function(val)
+    flags.staticshowreal = val
+end})
 
-        local function updateposition()
-            local char = plr.Character
-            local root = char.HumanoidRootPart
-            local piv = root.CFrame
-            local vaulyraystartpos = (piv.Position+piv.LookVector*2+Vector3.new(0,2.75,0))
+tab_hacks.newtoggle({title="innacurate static vault",onclick=function(val)
+    flags.staticvaultinnacurate = val
+end})
 
-            local startray = workspace:Raycast(piv.Position+Vector3.new(0,1.25,0),piv.LookVector*2,rayparams)
+tab_hacks.newtoggle({title="anti-null-vault (pls revamp)",onclick=function(val)
+    flags.antinullvault = val
 
-            if startray and startray.Instance and startray.Instance.Transparency < 1 then
-                vaulyraystartpos = (piv.Position+(piv.LookVector*(startray.Distance+0.05))+Vector3.new(0,2.75,0))
-            end
-            vaultraypart.Position = vaulyraystartpos-Vector3.new(0,ysize/2,0)
+    if head then
+        head.CanCollide = not val
+    end
+end})
 
-            local vaultray = workspace:Raycast(vaulyraystartpos,vaultraydir,rayparams)
+tab_hacks.newtoggle({title="SV detect quick vaulting",onclick=function(val)
+    flags.svdetectladders = val
+end})
 
-            if vaultray then
-                local estmvaultheight = ysize-vaultray.Distance-0.5
-                --warn("estimated vault: ".. tostring(estmvaultheight))
-                
-                if tab_hacks_toggle_autovault.getvalue() and estmvaultheight >= tab_hacks_slider_autovaultheight.getvalue() then
-                    keypress("Space")
-                    task.wait(0.1)
-                    keyrelease("Space")
-                end
-            end
-        end
-        updateposition()
+tab_hacks.newslider({title="SV detecting strength",min=0,max=2,default=flags.svladderstrength,increment=0.01,onchanged=function(val)
+    flags.svladderstrength = tonumber(val)
+end})
 
-        local camchangedcon
-        camchangedcon = camera.Changed:Connect(function()
-            updateposition()
-            
-            if not tab_hacks_toggle_showvaultray.getvalue() then
-                camchangedcon:Disconnect()
-            end
-        end)
+tab_hacks.newslider({title="SV detecting curve",min=0.5,max=3,default=flags.svladdercurve,increment=0.01,onchanged=function(val)
+    flags.svladdercurve = tonumber(val)
+end})
+
+local fakeray = Instance.new("Part")
+fakeray.Anchored = true
+fakeray.CanCollide = false
+fakeray.CanTouch = false
+fakeray.CanQuery = false
+fakeray.Size = Vector3.new(0.1,3.25,0.1)
+fakeray.Transparency = 1
+
+local lineadornment = Instance.new("LineHandleAdornment")
+lineadornment.Length = fakeray.Size.Y
+lineadornment.Color3 = Color3.new(1,0,1)
+lineadornment.Thickness = 3
+lineadornment.Adornee = fakeray
+lineadornment.CFrame = CFrame.new(0,fakeray.Size.Y/2,0)*CFrame.Angles(math.rad(-90),0,0)
+lineadornment.AlwaysOnTop = true
+lineadornment.Parent = fakeray
+
+tab_hacks.newtoggle({title="always show vault ray",onclick=function(val)
+    flags.showvaultcast = val
+
+    fakeray.Parent = val and workspace or nil
+end})
+
+tab_hacks.newtoggle({title="enable auto-vault",onclick=function(val)
+    flags.autovault = val
+end})
+
+tab_hacks.newslider({title="auto-vault height",min=0,max=2.75,default=flags.autovaultheight,increment=0.01,onchanged=function(val)
+    flags.autovaultheight = tonumber(val)
+end})
+
+tab_hacks.newlabel({title="-- character --"})
+
+tab_hacks.newtoggle({title="no knockback",onclick=function(val)
+    flags.noknockback = val
+end})
+
+tab_hacks.newtoggle({title="disable player collision",onclick=function(val)
+    flags.nocollision = val
+
+    if val then
+        disableplrcollision()
     else
-        if vaultraypart then
-            vaultraypart:Destroy()
-            vaultraypart = nil
+        for i,v in pairs(nocolconstraints) do
+            v:Destroy()
+        end
+        table.clear(nocolconstraints)
+    end
+end})
+
+tab_hacks.newtoggle({title="bhop",onclick=function(val)
+    flags.bhop = val
+end})
+
+tab_hacks.newtoggle({title="hold auto-jump",onclick=function(val)
+    flags.holdjump = val
+end})
+
+tab_hacks.newtoggle({title="never lock move vector",onclick=function(val)
+    flags.nomovelock = val
+end})
+
+tab_hacks.newtoggle({title="never lock ignore slide",onclick=function(val)
+    flags.lockslide = val
+end})
+
+tab_hacks.newtoggle({title="anti-freeze",onclick=function(val)
+    flags.antifreeze = val
+end})
+
+tab_hacks.newslider({title="fake lag in milliseconds",min=0,max=1000,default=0,increment=0.1,onchanged=function(val)
+    settings().Network.IncomingReplicationLag = val/1000
+end})
+
+tab_hacks.newlabel({title="-- rolling --"})
+
+tab_hacks.newtoggle({title="enable static roll ms (not done)",onclick=function(val)
+    flags.staticrollactive = val
+end})
+
+tab_hacks.newslider({title="static roll ms (not done)",min=0,max=1300,default=flags.staticrollms,increment=0.01,onchanged=function(val)
+    flags.staticrollms = tonumber(val)
+end})
+
+tab_hacks.newtoggle({title="spoof roll ms",onclick=function(val)
+    flags.staticrollspoof = val
+end})
+
+tab_hacks.newtoggle({title="show real roll ms",onclick=function(val)
+    flags.staticrollshowreal = val
+end})
+
+tab_hacks.newlabel({title="-- swingbars --"})
+
+tab_hacks.newtoggle({title="enable static swing",onclick=function(val)
+    flags.staticswingactive = val
+end})
+
+tab_hacks.newslider({title="static swing height",min=100,max=225.74,default=flags.staticswingpercent,increment=0.01,onchanged=function(val)
+    flags.staticswingpercent = tonumber(val)
+end})
+
+tab_hacks.newtoggle({title="uncap swing percent",onclick=function(val)
+    flags.uncapswings = val
+end})
+
+tab_hacks.newlabel({title="-- aiming --"})
+
+tab_hacks.newtoggle({title="enable aim assist",onclick=function(val)
+    flags.aimassistactive = val
+end})
+
+tab_hacks.newslider({title="aim assist strength",min=0,max=1,default=flags.aimassiststrength,increment=0.01,onchanged=function(val)
+    flags.aimassiststrength = tonumber(val)
+end})
+
+tab_hacks.newlabel({title="-- visuals --"})
+
+tab_hacks.newtoggle({title="show misprints",onclick=function(val)
+    local owned = flags.ownedmisprintpasses
+    if not owned then
+        flags.ownsmisprintpasses = {[1]=plr:GetAttribute("triplevotes"),[2]=plr:GetAttribute("triplevotesLegacy")}
+    end
+
+    if val then
+        plr:SetAttribute("triplevotes",true)
+        plr:SetAttribute("triplevotesLegacy",true)
+    else
+        plr:SetAttribute("triplevotes",owned[1] or false)
+        plr:SetAttribute("triplevotesLegacy",owned[2] or false)
+    end
+end})
+
+tab_hacks.newlabel({title="-- fun stuff --"})
+
+tab_hacks.newtoggle({title="glide while emoting",onclick=function(val)
+    flags.emotemove = val
+end})
+
+local modifications = {
+    [1] = {
+        label = "base",
+        contents = {
+            [1] = {att="RunSpeedMultiplier", title="running speed multiplier",min=0,max=10,default=1,increment=0.01},
+            [2] = {att="WalkSpeedMultiplier", title="walking speed multiplier",min=0,max=10,default=1,increment=0.01},
+            [3] = {att="JumpPowerMultiplier", title="jump power multiplier",min=0,max=10,default=1,increment=0.01},
+            [4] = {att="AccelerationMultiplier", title="acceleration multiplier",min=0,max=100,default=1,increment=0.01},
+            [5] = {att="GravityMultiplier", title="gravity multiplier",min=0,max=10,default=1,increment=0.01},
+        },
+    },
+    [2] = {
+        label = "tagging",
+        contents = {
+            [1] = {att="RangeMultiplier", title="range multiplier",min=0,max=10,default=1,increment=0.01},
+            [2] = {att="TagCooldown", title="tag cooldown multiplier",min=0,max=1,default=1,increment=0.01},
+            [3] = {att="TagRaySpread", title="tag cast size",min=0,max=10,default=1,increment=0.01},
+            [4] = {att="TagRayNumber", title="tag ray amount",min=0,max=100,default=9,increment=1},
+            [5] = {att="TagRayRows", title="tag ray circle rows",min=0,max=10,default=1,increment=1},
+        }
+    },
+    [3] = {
+        label = "momentum",
+        contents = {
+            [1] = {att="MomentumMultiplier", title="base momentum multiplier",min=0,max=10,default=1,increment=0.01},
+            [2] = {att="MomentumSpeed", title="momentum speed multiplier",min=0,max=10,default=1,increment=0.01},
+            [3] = {att="MomentumDecay", title="momentum ground decay multiplier",min=0,max=2,default=1,increment=0.01},
+            [4] = {att="MomentumMidair", title="momentum mid-air decay multiplier",min=0,max=2,default=1,increment=0.01},
+        }
+    },
+    [4] = {
+        label = "vaulting",
+        contents = {
+            [1] = {att="VaultMomentumMultiplier", title="vault momentum multiplier",min=0,max=10,default=1,increment=0.01},
+            [2] = {att="VaultStackingMomentumMultiplier", title="vault stacking momentum multiplier",min=0,max=10,default=1,increment=0.01},
+            [3] = {att="VaultCooldown", title="vault cooldown",min=0,max=1,default=0.1,increment=0.01},
+        }
+    },
+    [5] = {
+        label = "rolling",
+        contents = {
+            [1] = {att="RollSpeedMultiplier", title="roll speed multiplier",min=0,max=10,default=1,increment=0.01},
+            [2] = {att="RollBoostMultiplier", title="roll jump multiplier",min=0,max=10,default=1,increment=0.01},
+            [3] = {att="RollCooldown", title="roll cooldown",min=0,max=1,default=0,increment=0.01},
+        }
+    },
+    [6] = {
+        label = "sliding",
+        contents = {
+            [1] = {att="SlideSpeedMultiplier", title="slide speed multiplier",min=0,max=10,default=1,increment=0.01},
+            [2] = {att="SlideJumpMultiplier", title="slide jump power multiplier",min=0,max=10,default=1,increment=0.01},
+            [3] = {att="SlideLengthMultiplier", title="slide length multiplier",min=0,max=10,default=1,increment=0.01},
+            [4] = {att="SlideSteerMultiplier", title="slide tuning multiplier",min=0,max=10,default=1,increment=0.01},
+            [5] = {att="SlopesMultiplier", title="slide slope boost multiplier",min=0,max=10,default=1,increment=0.01},
+            [6] = {att="SlideCooldown", title="slide cooldown",min=0,max=1,default=0,increment=0.01},
+        }
+    },
+    [7] = {
+        label = "rails",
+        contents = {
+            [1] = {att="RailGrindMultiplier", title="rail speed multiplier",min=0,max=10,default=1,increment=0.01},
+            [2] = {att="RailGrindCooldown", title="rail cooldown",min=0,max=1,default=0,increment=0.01},
+        }
+    },
+    [8] = {
+        label = "swingbars",
+        contents = {
+            [1] = {att="SwingBarMultiplier", title="swingbar multiplier",min=0,max=10,default=1,increment=0.01},
+            [2] = {att="SwingBarCooldown", title="swingbar cooldown",min=0,max=1,default=0,increment=0.01},
+        }
+    },
+    [9] = {
+        label = "ziplines",
+        contents = {
+            [1] = {att="ZiplineCooldown", title="zipline cooldown",min=0,max=1,default=0.5,increment=0.01},
+        }
+    },
+    [10] = {
+        label = "wallrunning",
+        contents = {
+            [1] = {att="WallrunCooldown", title="wallrun cooldown",min=0,max=1,default=0.66,increment=0.01},
+        }
+    },
+    [11] = {
+        label = "windows",
+        contents = {
+            [1] = {att="WindowSmashMultiplier", title="window smash slow-down multiplier",min=-10,max=2,default=1,increment=0.01},
+            [2] = {att="WindowSmashCooldown", title="window smash cooldown",min=0,max=1,default=0,increment=0.01},
+        }
+    },
+    
+    [12] = {
+        label = "friction",
+        contents = {
+            [1] = {att="FrictionMultiplier", title="base friction multiplier",min=0,max=10,default=1,increment=0.01},
+            [2] = {att="FrictionSpeed", title="friction slow-down multiplier",min=0,max=10,default=1,increment=0.01},
+            [3] = {att="FrictionDecay", title="friction ground decay multiplier",min=0,max=2,default=1,increment=0.01},
+            [4] = {att="FrictionMidair", title="friction mid-air decay multiplier",min=0,max=2,default=1,increment=0.01},
+        }
+    },
+    [13] = {
+        label = "other",
+        contents = {
+            [1] = {att="JumpCooldown", title="jump cooldown",min=0,max=1,default=0.1,increment=0.01},
+            [2] = {att="TurnSmoothing", title="turn smoothing",min=0,max=2,default=0,increment=0.01},
+        }
+    },
+}
+
+for _,tbl in pairs(modifications) do
+    tab_mods.newlabel({title="-- ".. tbl.label .." --"})
+
+    for _,options in pairs(tbl.contents) do
+        local opts = {title=options.title,min=options.min,max=options.max,default=options.default,increment=options.increment,onchanged=function(val)
+            modifiersfolder:SetAttribute(options.att,tonumber(val))
+        end}
+        tab_mods.newslider(opts)
+    end
+end
+
+tab_importing.newlabel({title="-- maps --"})
+
+local modelstatuslabel
+local modelcanbeloaded = false
+tab_importing.newtextbox({title="model id",onchanged=function(val)
+    local txt = tostring(val)
+    txt = tonumber(txt)
+
+    local chngdisplaytxt = "model not found"
+
+    modelcanbeloaded = false
+    if txt then
+        local success,_ = pcall(function() mps:GetProductInfo(txt,Enum.InfoType.Asset) end)
+        local info = success and mps:GetProductInfo(txt,Enum.InfoType.Asset)
+
+        if info then
+            if info.AssetTypeId == 10 then
+                if info.IsPublicDomain == true then
+                    modelcanbeloaded = true
+                    chngdisplaytxt = "model found: ".. tostring(info.Name)
+                else
+                    chngdisplaytxt = "model is not public"
+                end
+            else
+                chngdisplaytxt = "asset is not a model"
+            end
+        else
+            chngdisplaytxt = "model does not exist"
+        end
+    end
+    modelstatuslabel.changetitle("> ".. chngdisplaytxt)
+
+    flags.mapmodelid = txt
+end})
+
+modelstatuslabel = tab_importing.newlabel({title="> model not found"})
+
+function tptorandomspawn()
+    if char then
+        local spawns = {}
+        for _,v in pairs(currentmapfolder:GetDescendants()) do
+            if v:IsA("SpawnLocation") then
+                table.insert(spawns,v.CFrame+Vector3.new(0,v.Size.Y/2,0))
+            end
+        end
+
+        if #spawns > 0 then
+            local rng = spawns[math.random(1,#spawns)]
+            char:PivotTo(rng+Vector3.new(0,6,0))
+        else
+
+        end
+    end
+end
+
+tab_importing.newbutton({title="import map",onclick=function()
+    if modelcanbeloaded then
+        local instances = game:GetObjects("rbxassetid://".. tostring(flags.mapmodelid))
+
+        if instances and #instances > 0 then
+            currentmapfolder:ClearAllChildren()
+
+            local totalinstances = 0
+            for _,v in pairs(instances) do
+                totalinstances += #v:GetDescendants()
+                v.Parent = currentmapfolder
+            end
+
+            local countedinstances = 0
+            for _,v in pairs(instances:GetDescendants()) do
+                countedinstances += 1
+                print(countedinstances .."/".. totalinstances)
+            end
+            tptorandomspawn()
+        end
+    end  
+end})
+
+tab_importing.newbutton({title="teleport to spawn",onclick=function()
+    tptorandomspawn()
+end})
+
+tab_importing.newbutton({title="hide spawns",onclick=function()
+    for _,v in pairs(currentmapfolder:GetDescendants()) do
+        if v:IsA("SpawnLocation") then
+            v.Transparency = 1
+            v.CanCollide = false
+            v.CanQuery = false
+            v.CanTouch = false
+            
+            local decal = v:FindFirstChildOfClass("Decal")
+
+            if decal then
+                decal:Destroy()
+            end
         end
     end
 end})
 
-local tab_hacks_slider_tagbotrange
-local tab_hacks_slider_tagbotdelay
-local tab_hacks_toggle_tagbotinvertkb
-local tab_hacks_slider_tagbotmode
-local tab_hacks_slider_tagbottagmode
-local tab_hacks_toggle_tagbotplaysfx
+tab_importing.newtoggle({title="detect swingbars",onclick=function(val)
+    flags.mapdoswings = val
+end})
 
-local randomhitsounds = soundsfolder:WaitForChild("FatalFractal"):WaitForChild("HitSounds"):GetChildren()
+tab_importing.newtoggle({title="remove invisible parts",onclick=function(val)
+    flags.mapnoinvis = val
+end})
 
-local tagbotcurrentlyenabled = false
-local tab_hacks_toggle_tagbot = tab_hacks.newtoggle({title="tag aura",onclick=function(bool)
-    tagbotcurrentlyenabled = bool
+local lastswingfallvel = 25
+local vaulthistory = {}
+local svladdershrink = 1
+function rootinstanceadded(v)
+    if v:IsA("Sound") then
+        if v.Name == "Vault" or v.Name == "HighVault" then
+            local accvh = nil
 
-    if bool then
-        while tagbotcurrentlyenabled do
-            local people = {}
-            local enemies = getenemies(playerrole.Value)
-            local char = plr.Character
-
-            local tagmode = tab_hacks_slider_tagbottagmode.getvalue()
-            for i,v in pairs(game.Players:GetPlayers()) do
-                if v.Character and v ~= plr then
-                    local wplrrole = v.PlayerRole.Value
-                    local cantagthisguy = false
-
-                    if tagmode == 0 then
-                        cantagthisguy = true
-                    elseif tagmode == 1 then
-                        cantagthisguy = table.find(enemies,wplrrole)
-                    elseif tagmode == 2 then
-                        cantagthisguy = not table.find(enemies,wplrrole)
-                    elseif tagmode == 3 then
-                        cantagthisguy = playerrole.Value == wplrrole
-                    end
-                    
-                    if cantagthisguy then
-                        table.insert(people,{who=v,dist=v:DistanceFromCharacter(char:GetPivot().Position)})
-                    end
-                end
-            end
-
-            table.sort(people,function(a,b)
-                return a.dist < b.dist
-            end)
-
-            for i,v in pairs(people) do
-                local wchar = v.who.Character
-                task.spawn(function()
-                    if wchar and char and v.dist <= tab_hacks_slider_tagbotrange.getvalue() then
-                        local knockback
-                        local kbmode = tab_hacks_slider_tagbotmode.getvalue()
-                        
-                        if kbmode == 0 then
-                            knockback = -(char:GetPivot().Position-wchar:GetPivot().Position).Unit
-                        elseif kbmode == 1 then
-                            knockback = camera.CFrame.LookVector
-                        elseif kbmode == 2 then
-                            knockback = Vector3.new(0,1,0)
-                        elseif kbmode == 3 then
-                            knockback = (mouse.Hit.Position-wchar:GetPivot().Position).Unit
-                        elseif kbmode == 4 then
-                            knockback = Vector3.new(Random.new():NextNumber(-1,1),Random.new():NextNumber(-1,1),Random.new():NextNumber(-1,1))
-                        end
-
-                        if tab_hacks_toggle_tagbotinvertkb.getvalue() then
-                            knockback = -knockback
-                        end
-
-                        if tab_hacks_toggle_tagbotplaysfx.getvalue() then
-                            playsound(randomhitsounds[math.random(1,#randomhitsounds)],wchar.PrimaryPart,0.1,true)
-                        end
-
-                        tagevent:InvokeServer(wchar.Humanoid,knockback)
-                    end
+            if #vaulthistory >= 2 then
+                table.sort(vaulthistory,function(a,b)
+                    return a.ticktime > b.ticktime
                 end)
             end
 
-            task.wait(tab_hacks_slider_tagbotdelay.getvalue())
-        end
-    end
-end})
-tab_hacks_slider_tagbotrange = tab_hacks.newslider({
-    title = "tag aura range",
-    min=8.5,
-    max=30,
-    increment = 0.1,
-    default = 8.5,
-})
-tab_hacks_slider_tagbotdelay = tab_hacks.newslider({
-    title = "tag aura delay",
-    min=0,
-    max=5,
-    increment = 0.01,
-    default = 1,
-})
+            if flags.staticvaultactive then
+                local svh = flags.staticvaultheight
+                local vel = root.AssemblyLinearVelocity
+                local fakevel = math.clamp(30*svh/1.5,30,math.huge)
 
-tab_hacks_slider_tagbottagmode = tab_hacks.newslider({
-    title = "tag aura target mode",
-    min=0,
-    max=3,
-    increment = 1,
-    default = 0,
-    textmode = {
-        [0] = "everyone",
-        [1] = "opponents",
-        [2] = "friends",
-        [3] = "same role",
-    },
-})
-
-tab_hacks_toggle_tagbotinvertkb = tab_hacks.newtoggle({title="invert tag aura knockback"})
-
-tab_hacks_slider_tagbotmode = tab_hacks.newslider({
-    title = "tag aura knockback mode",
-    min=0,
-    max=4,
-    increment = 1,
-    default = 0,
-    textmode = {
-        [0] = "distance",
-        [1] = "camera",
-        [2] = "upward",
-        [3] = "mouse",
-        [4] = "random",
-    },
-})
-tab_hacks_toggle_tagbotplaysfx = tab_hacks.newtoggle({title="play sounds tag aura"})
-
-local tab_hacks_toggle_teleroll = tab_hacks.newtoggle({title="teleport roll"})
-local tab_hacks_toggle_velroll = tab_hacks.newtoggle({title="velocity roll"})
-local tab_hacks_toggle_autoroll = tab_hacks.newtoggle({title="automatic roll"})
-local tab_hacks_slider_autorollvel = tab_hacks.newslider({
-    title = "auto roll start check velocity",
-    min=-42,
-    max=0,
-    increment = 0.1,
-    default = -42,
-})
-local tab_hacks_toggle_autotrimp = tab_hacks.newtoggle({title="automatic trimp"})
-local tab_hacks_toggle_runinalldirs = tab_hacks.newtoggle({title="run in all directions",
-onclick=function(bool)
-    codemodifiers:SetAttribute("RunInAllDirections",bool)
-end})
-
-local tab_hacks_toggle_noknockback = tab_hacks.newtoggle({title="no knockback"})
-local tab_hacks_toggle_antifreeze = tab_hacks.newtoggle({title="anti-freeze",
-onclick=function(bool)
-    local char = plr.Character
-    if bool and char then
-        for i,v in pairs(char:GetChildren()) do
-            if v:IsA("BasePart") then
-                v.Anchored = false
-            end
-        end
-    end
-end})
-local tab_hacks_toggle_controlzip
-tab_hacks_toggle_controlzip = tab_hacks.newtoggle({
-    title="controllable ziplines (client side lol)",
-    onclick=function(bool)
-    local char = plr.Character
-
-    if char then
-        local root = char.HumanoidRootPart
-
-        if root then
-            for i,v in pairs(root:GetChildren()) do    
-                if v:IsA("AlignPosition") then
-                    task.spawn(function()
-                        while tab_hacks_toggle_controlzip.getvalue() do    
-                            v.ReactionForceEnabled = not v.ReactionForceEnabled
-                            task.wait()
-                        end
-                        v.ReactionForceEnabled = false
-                    end)
+                if svh >= 2.5 then
+                    v.SoundId = "rbxassetid://17775430987"
+                else
+                    v.SoundId = "rbxassetid://14054617616"
                 end
-            end
-        end
-    end
-end})
-local tab_hacks_toggle_contactdmg = tab_hacks.newtoggle({
-    title="disable contact damage",
-    onclick=function(bool)
-    local map = currentmap:FindFirstChildOfClass("Folder")   
-
-    if map then
-        if bool then
-            for i,v in pairs(map:GetDescendants()) do
-                local fakepart = v:Clone()
-                fakepart:SetAttribute("ContactDamage",nil)
-
-                table.insert(hurtfulparts,{part=v,parent=v.Parent})
-                table.insert(fakehurtparts,fakepart)
-
-                fakepart.Parent = v.Parent
-                v.Parent = nil
-            end
-        else
-            for i,v in pairs(hurtfulparts) do
-                v.part.Parent = v.parent
-            end
-
-            for i,v in pairs(fakehurtparts) do
-                v:Destroy()
-            end
-            table.clear(fakehurtparts)
-        end
-    end
-end})
-
-local tab_hacks_toggle_staticswing =tab_hacks.newtoggle({title="enable static swing percent"})
-local tab_hacks_slider_staticswing = tab_hacks.newslider({
-    title = "static swing percentage",
-    min=100,
-    max=225.74,
-    increment = 0.01,
-    default = 100,
-})
-
-local tab_hacks_toggle_teamtag
-
-local function updatetagteammates(bool)
-    bool = bool or tab_hacks_toggle_teamtag.getvalue()
-
-    for _,v in pairs(game.Players:GetPlayers()) do
-        if v ~= plr then
-            local role = v.PlayerRole.Value
-            local disablequery = bool and (role ~= "Alone" and role ~= playerrole.Value)
-
-            for i,limb in pairs(v.Character:GetDescendants()) do
-                if limb:IsA("BasePart") then
-                    limb.CanQuery = disablequery
-                end
-            end
-            
-        end
-    end
-end
-
-votingvalue.Changed:Connect(updatetagteammates)
-playerrole.Changed:Connect(updatetagteammates)
-
-tab_hacks_toggle_teamtag = tab_hacks.newtoggle({
-    title="tag through teammates (fix pls) (fix pls x2)",
-    onclick=function(bool)
-    updatetagteammates(bool)
-end})
-
-local slidermodifiers = {
-    JumpPowerMultiplier = {"jump power multplier",0,5},
-    WalkSpeedMultiplier = {"speed multplier",0,5},
-    AccelerationMultiplier = {"acceleration multiplier",0,10},
-    TagCooldown = {"tag cooldown multiplier",0,2},
-    RangeMultiplier = {"range multplier",0,10},
-    TagRayRows = {"tag ray rows",0,5,1,1},
-    TagRayNumber = {"tag ray count",1,10,9,1},
-    TagRaySpread = {"tag ray spread",0,10,1,1},
-    MomentumMultiplier = {"universal momentum multiplier",0,10},
-    MomentumSpeed = {"momentum speed multiplier",0,10},
-    MomentumDecay = {"momentum decay on ground",0,2},
-    MomentumMidair = {"momentum decay in air",0,2},
-    VaultStackingMomentumMultiplier = {"vault stacking multiplier",0,3},
-    GravityMultiplier = {"gravity multiplier",0,2},
-    RailGrindMultiplier = {"railing speed multplier",0,3},
-    RollSpeedMultiplier = {"roll speed boost multplier",0,5},
-    RollBoostMultiplier = {"roll jump boost multplier",0,5},
-    WindowSmashMultiplier = {"window smash boost multiplier",-5,1},
-    SlideSpeedMultiplier = {"slide speed multiplier",0,10},
-    SlideSteerMultiplier = {"slide steer multiplier",0,10},
-    SlideJumpMultiplier = {"slide jump power multiplier",0,10},
-    SlopesMultiplier = {"slope slide multiplier",0,10},
-    WallrunCooldown = {"wall run cooldown",0,1,0.66,0.01},
-}
-
-local togglemodifiers = {
-    EnableWallrunning = "wallrun everywhere",
-    InfiniteSlides = "infinite slide duration",
-    DisableRailGrinding = "disable rails",
-    DisableSwingBars = "disable swing bars",
-    DisableRolling = "disable rolling",
-    DisableVaulting = "disable vaulting",
-    DisableWindowSmashing = "disable window smashing",
-    DisableSprinting = "disable sprinting",
-    DisableWalking = "disable walking",
-    DisableSliding = "disable sliding",
-    DisableVaulting = "disable vaulting",
-    DisableAllUtgMovement = "disable all utg movement",
-    RotateInMoveDirection = "rotate in move direction (fun)",
-
-}
-
-local slidermotifierswitchcolors = false
-for modname,v in pairs(slidermodifiers) do
-    tab_mods.newslider({
-        title = v[1],
-        color = slidermotifierswitchcolors and Color3.fromRGB(210,220,210) or Color3.fromRGB(160,170,160),
-        min = v[2],
-        max = v[3],
-        increment = v[5] or 0.1,
-        default = v[4] or 1,
-    onchanged = function(val)
-        codemodifiers:SetAttribute(modname,val)
-    end})
-    slidermotifierswitchcolors = not slidermotifierswitchcolors
-end
-
-for modname,fakename in pairs(togglemodifiers) do
-    tab_mods.newtoggle({
-        title = fakename,color=Color3.fromRGB(190,150,150),
-    onclick = function(val)
-        codemodifiers:SetAttribute(modname,val)
-    end})
-end
-
-local function loadmapmodel(mapfolder)
-    local char = plr.Character
-
-    if mapfolder == nil then
-        return
-    end
-    
-    if char then
-        local mapsize,mappivot
-        local spawns = {}
-
-        currentmap:ClearAllChildren()
-
-        if mapfolder:IsA("Model") then
-            mapsize,mappivot = mapfolder:GetBoundingBox()
-        else
-            local sudomodel = Instance.new("Model")
-            mapfolder.Parent = sudomodel
-            mapsize,mappivot = sudomodel:GetBoundingBox()
-        end
-
-        for i,v in pairs(mapfolder:GetDescendants()) do
-            if v:IsA("SpawnLocation") then
-                table.insert(spawns,v)
-            end
-        end
-        mapfolder.Parent = currentmap
-
-        local randspawn = #spawns > 0 and spawns[math.random(1,#spawns)]
-        local spawncframe = randspawn and randspawn.CFrame or mappivot+Vector3.new(0,100,0)
-        char:PivotTo(spawncframe+Vector3.new(0,6,0))
-    end
-end
-
-local ingamemaps = game.ReplicatedStorage.Maps:GetChildren()
-
-table.sort(ingamemaps,function(a,b)
-    return a.Name < b.Name
-end)
-
-local tab_maps_toggle_servermap = tab_maps.newtoggle({title="use pure server map (one time use per map)"})
-
-local mapstableswitchcolors = false
-for i,map in pairs(ingamemaps) do
-    local clientonlymode = false
-    local thebutton
-    thebutton = tab_maps.newbutton({
-        title=map.Name,
-        color = mapstableswitchcolors and Color3.fromRGB(220,210,200) or Color3.fromRGB(170,160,140),
-        onclick=function()
-            if tab_maps_toggle_servermap.getvalue() then
-                if clientonlymode then
-                    return
-                end
-
-                local clonedmap = map:Clone()
-                loadmapmodel(map)
-                clonedmap.Parent = game.ReplicatedStorage.Maps
-                map = clonedmap
-                clientonlymode = true
-                thebutton.changetitle(map.Name.." (only client)")
-            else
-                loadmapmodel(map:Clone())
-            end
-        end})
-    mapstableswitchcolors = not mapstableswitchcolors
-end
-
-function characteradded(char)
-    local root = char:WaitForChild("HumanoidRootPart")
-    local hum = char:WaitForChild("Humanoid")
-    local animator = hum:WaitForChild("Animator")
-    local scripts = char:WaitForChild("scripts") 
-    local emotescript = scripts:WaitForChild("animation"):WaitForChild("Emotes")
-    local animatescript = scripts:WaitForChild("animation"):WaitForChild("Animate")
-    local momentumleanscript = scripts:WaitForChild("visuals"):WaitForChild("MomentumLeaning")
-    rayparams.FilterDescendantsInstances = {char}
-    camera = workspace.CurrentCamera
-
-    local function rootinstanceadded(v)
-        if (v.Name == "Vault" or v.Name == "HighVault") then
-            if tab_hacks_toggle_staticvault.getvalue() then
-                local isaccurate = tab_hacks_toggle_accuratevault.getvalue()
-                local height = math.clamp(tab_hacks_slider_staticvault.getvalue(),0,math.huge)
-
-                if tab_hacks_toggle_spoofvault.getvalue() then
-                    v.SoundId = height>=2.5 and "rbxassetid://17775430987" or "rbxassetid://14054617616"
-                    v.Playing = true
-                end
-
-                task.wait()
-                local vel = char.PrimaryPart.AssemblyLinearVelocity
-
-                local txt = movementstats.Text
-                local findstart = string.find(txt,"vault height")
-                local findend = string.find(txt,"roll ms")-2
-                local actualheight = tonumber(string.sub(txt,findstart+14,findend-6))
+                v:Play()
                 
-                if isaccurate then
-                    local offset = height-actualheight
-                    
-                    task.spawn(function()
-                        if offset > 0 then
-                            for i=1,10 do
-                                char:PivotTo(char:GetPivot()-Vector3.new(0,offset/10,0))
-                                task.wait()
-                            end
+                runs.Stepped:Wait()
+                accvh = getactualvaultheight()
+
+                if flags.svdetectladders and #vaulthistory > 0 then
+                    local strength = flags.svladderstrength
+                    local nowtick = tick()
+                    local shrinkness = 1
+
+                    for _,v in pairs(vaulthistory) do
+                        local secsover = nowtick-v.ticktime
+                        if secsover <= strength then
+                            local percentover = (strength-secsover)/strength
+                            local negativity = ((strength/3)*percentover)^flags.svladdercurve
+                            print(secsover,percentover)
+                            shrinkness = math.clamp(shrinkness-negativity,0,1)
                         end
-                    end)
+                    end
+
+                    svladdershrink = shrinkness
+                    svh = flags.staticvaultheight*shrinkness
+                    fakevel = math.clamp(30*svh/1.5,30,math.huge)
                 end
 
-                local yvelocity = 30*height/1.5
-                
-                if not tab_hacks_toggle_lowvault.getvalue() then
-                    yvelocity = math.clamp(yvelocity,30,math.huge)
-                end
+                root.AssemblyLinearVelocity = Vector3.new(vel.X,fakevel,vel.Z)-root.CFrame.LookVector*2
 
-                -- char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(vel.X*1,
-                -- height <= 1.5 and 30 or -0.6532+19.9402*height
-                -- ,vel.Z*1)
-                --char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(vel.X*1,(2*height)^2+(4*height)+24,vel.Z*1)
+                if not flags.staticvaultinnacurate then
+                    local studsoff = accvh-svh
 
-                waitframe()
-                char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(vel.X,yvelocity,vel.Z)-root.LookVector*2
-            end
-        end
-
-        if v.Name == "Roll" then
-            if tab_hacks_toggle_autotrimp.getvalue() then
-                for i=1,5 do
-                    task.wait(0.075)
-                    local lv = root.CFrame.LookVector
-                    local trimpray = workspace:Spherecast((root.Position-Vector3.new(0,1.75,0)-lv*0.5),2,lv*2.75,maponlyrayparams)
-
-                    if trimpray then
-                        local vel = char.PrimaryPart.AssemblyLinearVelocity
-                        
-                        for i=1,2 do
-                            char.PrimaryPart.AssemblyLinearVelocity = Vector3.new(
-                            vel.X*0.5,
-                            (math.abs(vel.X)+math.abs(vel.Z))*0.9,
-                            vel.Z*0.5)
-                            task.wait(0.05)
-                        end
-                        break
+                    for i=1,10 do
+                        char:PivotTo(char:GetPivot()+Vector3.new(0,studsoff/10,0))
+                        task.wait()
                     end
                 end
             end
-        end
 
-        if v.Name == "SwingBar" and tab_hacks_toggle_staticswing.getvalue() then
-            local swingval = tab_hacks_slider_staticswing.getvalue()
-            local mult = 1-math.floor((225.74-swingval)/(125.74)*100)/100
-            local vel = root.AssemblyLinearVelocity
-            root.AssemblyLinearVelocity = Vector3.new(vel.X,-(25+(55*mult)),vel.Z)
-            task.wait()
-            root.AssemblyLinearVelocity = Vector3.new(vel.X,vel.Y,vel.Z)
-        end
+            if not accvh then
+                runs.Stepped:Wait()
+                accvh = getactualvaultheight()
+            end
 
-        if v.Name == "FrozenBlock" and tab_hacks_toggle_antifreeze.getvalue() then
-            v.CanCollide = false
+            table.insert(vaulthistory,{
+                ticktime = tick(),
+                height = accvh,
+            })
+        elseif v.Name == "SwingBar" then
+            if flags.staticswingactive then
+                local pp = flags.staticswingpercent/100
+                local velneeded = 25*pp^(1/0.7)
+                local vel = root.AssemblyLinearVelocity
+
+                root.AssemblyLinearVelocity = Vector3.new(vel.X,-velneeded,vel.Z)
+            end
+
+            if flags.uncapswings then
+                lastswingfallvel = -root.AssemblyLinearVelocity.Y
+                local percentage = (math.clamp(lastswingfallvel,25,math.huge) / 25) ^ 0.7 -- (math.clamp(-root.AssemblyLinearVelocity.Y,25,80) / 25) ^ 0.7
+
+                if lastswingfallvel > 80 then
+                    local overshoot = lastswingfallvel/80
+                    codemodifiersfolder:SetAttribute("SwingBarMultiplier",overshoot)
+                end
+                task.wait(0.4)
+                codemodifiersfolder:SetAttribute("SwingBarMultiplier",nil)
+            end
         end
-        
-        if v.Name == "TagBodyVelocity" and v:IsA("BodyVelocity") then
-            if tab_hacks_toggle_noknockback.getvalue() then
+    elseif v:IsA("BodyVelocity") then
+        if v.Name == "TagBodyVelocity" then
+            if flags.noknockback then
                 v.MaxForce = Vector3.new(0,0,0)
                 v.Velocity = Vector3.new(0,0,0)
             end
         end
+    end
+end
 
-        if v:IsA("AlignPosition") and tab_hacks_toggle_controlzip.getvalue() then
-             task.spawn(function()
-                while tab_hacks_toggle_controlzip.getvalue() do    
-                    v.ReactionForceEnabled = not v.ReactionForceEnabled
-                    task.wait()
+function charadded(cc)
+    if cc then
+        char = cc
+        hum = cc:WaitForChild("Humanoid")
+        root = cc:WaitForChild("HumanoidRootPart")
+        head = cc:WaitForChild("Head")
+        camera = workspace.CurrentCamera
+        
+        debugui = playergui:WaitForChild("Debug")
+        debugvalues = debugui:WaitForChild("TextLabel")
+        debugprint = debugui:WaitForChild("PrintList")
+        fakevalues = debugvalues:Clone()
+
+        local values = char:WaitForChild("values")
+        local lockmovevector = values:WaitForChild("LockMoveVector")
+
+        vaultparams.FilterDescendantsInstances = {char}
+        root.ChildAdded:Connect(rootinstanceadded)
+
+        hum.StateChanged:Connect(function(_,humstate)
+            if flags.bhop then
+                if humstate == Enum.HumanoidStateType.Landed then
+                    hum:SetAttribute("HasJumped",false)
                 end
-                v.ReactionForceEnabled = false
-            end)
+            end
+        end)
+
+        lockmovevector.Changed:Connect(function()
+            if flags.nomovelock then
+                if flags.lockslide and char:GetAttribute("Sliding") then
+                    return
+                end
+
+                lockmovevector.Value = false
+            end
+        end)
+        
+        char.AttributeChanged:Connect(function(att)
+            if att == "Frozen" and char:GetAttribute(att) then
+                if flags.antifreeze then
+                    char:SetAttribute("Frozen",false)
+                    root.Anchored = false
+                    
+                    local block = root:WaitForChild("FrozenBlock")
+                    block.CanCollide = false
+                end
+            end
+        end)
+
+        if flags.nocollision then
+            disableplrcollision()
         end
     end
+end
 
-    local function limbadded(v)
-        v.Changed:Connect(function()
-            if tab_hacks_toggle_antifreeze.getvalue() and not tab_fun_toggle_slowmotion.getvalue() then
-                v.Anchored = false
+charadded(char)
+plr.CharacterAdded:Connect(charadded)
+
+function enemyadded(who)
+    local hc = who.Character or who.CharacterAdded:Wait()
+
+    if hc then
+        local function limbadded(enemylimb)
+            if char and flags.nocollision then
+                for _,limb in pairs(char:GetChildren()) do
+                    if limb:IsA("BasePart") then
+                        local colcons = Instance.new("NoCollisionConstraint")
+                        colcons.Part0 = limb
+                        colcons.Part1 = enemylimb
+                        colcons.Parent = limb
+                        table.insert(nocolconstraints,colcons)
+                    end
+                end
+            end
+        end
+
+        for i,v in pairs(hc:GetChildren()) do
+            if v:IsA("BasePart") then
+                limbadded(v)
+            end
+        end
+        
+        hc.ChildAdded:Connect(function(v)
+            if v:IsA("BasePart") then
+                limbadded(v)
             end
         end)
     end
-
-    if tab_fun_toggle_movelean.getvalue() then
-        momentumleanscript.Disabled = true
-    end
-
-    char.Changed:Connect(function()
-        if char:GetAttribute("Emoting") and tab_fun_toggle_emotemove.getvalue() then
-            task.wait()
-            emotescript.Disabled = true
-            emotescript.Disabled = false
-        end
-    end)
-
-    for i,v in pairs(root:GetChildren()) do
-        rootinstanceadded(v)
-    end
-
-    root.ChildAdded:Connect(function(v)
-        rootinstanceadded(v)
-    end)
-
-    local cancelall = false
-    animator.AnimationPlayed:Connect(function(v)
-        if cancelall then
-            v:Stop()
-            return
-        end
-
-        if v.Name == "Vault" and tab_hacks_toggle_nullvault.getvalue() then
-            cancelall = true
-            for i,p in pairs(animator:GetPlayingAnimationTracks()) do
-                p:Stop()
-            end
-            task.wait(0.1)
-            cancelall = false
-        end
-    end)
-
-    for i,v in pairs(char:GetChildren()) do
-        if v:IsA("BasePart") then
-            limbadded(v)
-        end
-    end
-
-    char.ChildAdded:Connect(function(v)
-        if v:IsA("BasePart") then
-            limbadded(v)
-        end
-    end)
 end
 
-function mapadded(map)
-    local function instanceadded(v)
-        if tab_fun_toggle_expswing.getvalue() and v:GetAttribute("SwingBar") then
-            v.Name = "ExperimentalSwingbar"
-        end
-
-        if v:GetAttribute("ContactDamage") then
-            if tab_hacks_toggle_contactdmg.getvalue() then
-                local fakepart = v:Clone()
-                fakepart:SetAttribute("ContactDamage",nil)
-
-                table.insert(hurtfulparts,{part=v,parent=v.Parent})
-                table.insert(fakehurtparts,fakepart)
-
-                fakepart.Parent = v.Parent
-                v.Parent = nil
-            end
-        end
+for i,v in pairs(game.Players:GetPlayers()) do
+    if v ~= plr then
+        task.spawn(function()
+            enemyadded(v)
+        end)
     end
-    table.clear(hurtfulparts)
-    table.clear(fakehurtparts)
-
-    for i,v in pairs(map:GetDescendants()) do
-        instanceadded(v)
-    end
-
-    map.DescendantAdded:Connect(instanceadded)
 end
 
-plr.CharacterAdded:Connect(function(char)
-    characteradded(char)
-end)
+game.Players.PlayerAdded:Connect(enemyadded)
 
-if plr.Character then
-    characteradded(plr.Character)
+local randomtitles = {
+    "riker give me dev role",
+    "jasper give me developer",
+    "/give me admin",
+    "iamroie2b mode activated",
+    "they added wallrunning",
+    "new route discovered??",
+    "pro mods",
+    "utg destroyer!!",
+    "tagmin 2.0",
+    "telob gui",
+    "created by telob ;)",
+    "competitive tag league gui",
+    "utghub",
+    "ultimate utg gui",
+    "deluxe premium advanced untitled tag game graphical user interface",
+    "utg gui",
+    "revamp",
+    "cheat_engine.exe",
+    "utg://hacks",
+    "vote slasher you noobs",
+    "/btools all",
+    "this cost $25 btw",
+    "pingus",
+    "whereabouts gui :)",
+    "stop banning me",
+    "report!! hacker!!",
+    "hey there",
+    "yall dont know me",
+    "get this guy in #exploiter-reports",
+    -- "this {user} guy looks weird",
+    -- "hello {user} :)",
+    -- "{user} gui",
+    -- "@{user}",
+    --"1v1 me {user}",
+    "wire me $30 for the premium gui",
+    "infinite tags generator",
+    "snarp",
+    "wiser actually sucks 1v1 me scrub",
+    "@colde ban this guy",
+    "{user} is the real ultimateutgplayer",
+    "thx to chamber for helping me",
+    "credits to blazing for this gui",
+    "new debug menu sucks",
+    '"they added wallrunning" ahh gui',
+    ":steam-happy:",
+    "if only we had remote spy...",
+    "S tier gui",
+    "def sux",
+    "chamber is my opp",
+    "pingus gui",
+    "colde gui",
+    "nerd gui",
+    "if only we had hookfunction...",
+    "3% unc!",
+    "nust gui",
+    "nimbus is my goat",
+    "cobalt blue is my GOAT",
+    "utg mods smell",
+    "redekbo best dev",
+    "rikergui",
+    "enable S+ mode",
+    "compgui",
+    "shoutout to utg comp",
+    "whens tas coming out",
+    "whens ultra-utg coming out",
+    "your very lucky",
+    "/debt all",
+}
+
+window.visibilitychanged = function(opened)
+    if opened then
+        local newtitle = randomtitles[math.random(1,#randomtitles)]
+        newtitle = string.gsub(newtitle,"{user}",plr.DisplayName)
+        window.changetitle(newtitle)
+    end
 end
 
-currentmap.ChildAdded:Connect(function(v)
-    mapadded(v)
-end)
-
-workspace.ChildAdded:Connect(function(v)
-    if tab_sounds_toggle_muterole.getvalue() and #rolesoundsbeingplayed > 0 and v:IsA("Sound") and v.Name == "RoleChange" then
-        v.Volume = 0
-    end
-end)
-
-debugstatsgui:WaitForChild("PrintList").ChildAdded:Connect(function(v)
+debugprint.ChildAdded:Connect(function(v)
     if v:IsA("TextLabel") then
         if v.Text:find("studs") then
-            if tab_hacks_toggle_spoofvault.getvalue() then
-                local height = tab_hacks_slider_staticvault.getvalue()
-                v.Text = string.format("%.2f",height) .." studs"
-                
-                if height >= 2.75 then
-                    local rainbow = game.ReplicatedStorage.UIAssets.Rainbow:Clone()
-                    rainbow.Color = ColorSequence.new({
-                        ColorSequenceKeypoint.new(0,Color3.new(1,0.482,0.482)),
-                        ColorSequenceKeypoint.new(0.1,Color3.new(1,0.705,0.290)),
-                        ColorSequenceKeypoint.new(0.2,Color3.new(0.878,1,0.396)),
-                        ColorSequenceKeypoint.new(0.3,Color3.new(0.588,1,0.474)),
-                        ColorSequenceKeypoint.new(0.4,Color3.new(0.380,1,0.627)),
-                        ColorSequenceKeypoint.new(0.5,Color3.new(0.498,1,1)),
-                        ColorSequenceKeypoint.new(0.6,Color3.new(0.482,0.698,1)),
-                        ColorSequenceKeypoint.new(0.7,Color3.new(0.631,0.537,1)),
-                        ColorSequenceKeypoint.new(0.8,Color3.new(0.901,0.552,1)),
-                        ColorSequenceKeypoint.new(0.9,Color3.new(1,0.576,0.839)),
-                        ColorSequenceKeypoint.new(1,Color3.new(1,0.588,0.588)),
-                    })
-                    rainbow.Rotation = 6
-                    rainbow.Parent = v
-                    v.TextColor3 = Color3.fromRGB(255,255,255)
-                elseif height >= 2 then
-                    v.TextColor3 = Color3.fromRGB(80,255,179)
+            if flags.staticvaultspoof then
+                local function updtxt()
+                    local svh = tonumber(flags.staticvaultheight)*svladdershrink
+                    local vtxt = string.format("%.2f",svh) .." studs"
 
-                    if v:FindFirstChild("Rainbow") then
-                        v.Rainbow:Destroy()
+                    if flags.staticshowreal then
+                        vtxt = vtxt.." (".. string.format("%.2f",getactualvaultheight())..")"
                     end
-                else
-                    v.TextColor3 = Color3.fromRGB(225,255,226)
+                    v.Text = vtxt
+                    
+                    if svh >= 2.75 then
+                        if not v:FindFirstChild("Rainbow") then
+                            local rainbow = game.ReplicatedStorage.UIAssets.Rainbow:Clone()
+                            rainbow.Color = ColorSequence.new({
+                                ColorSequenceKeypoint.new(0,Color3.new(1,0.482,0.482)),
+                                ColorSequenceKeypoint.new(0.1,Color3.new(1,0.705,0.290)),
+                                ColorSequenceKeypoint.new(0.2,Color3.new(0.878,1,0.396)),
+                                ColorSequenceKeypoint.new(0.3,Color3.new(0.588,1,0.474)),
+                                ColorSequenceKeypoint.new(0.4,Color3.new(0.380,1,0.627)),
+                                ColorSequenceKeypoint.new(0.5,Color3.new(0.498,1,1)),
+                                ColorSequenceKeypoint.new(0.6,Color3.new(0.482,0.698,1)),
+                                ColorSequenceKeypoint.new(0.7,Color3.new(0.631,0.537,1)),
+                                ColorSequenceKeypoint.new(0.8,Color3.new(0.901,0.552,1)),
+                                ColorSequenceKeypoint.new(0.9,Color3.new(1,0.576,0.839)),
+                                ColorSequenceKeypoint.new(1,Color3.new(1,0.588,0.588)),
+                            })
+                            rainbow.Rotation = 6
+                            rainbow.Parent = v
+                        end
 
-                    if v:FindFirstChild("Rainbow") then
-                        v.Rainbow:Destroy()
+                        v.TextColor3 = Color3.fromRGB(255,255,255)
+                    elseif svh >= 2 then
+                        v.TextColor3 = Color3.fromRGB(80,255,179)
+
+                        if v:FindFirstChild("Rainbow") then
+                            v.Rainbow:Destroy()
+                        end
+                    else
+                        v.TextColor3 = Color3.fromRGB(255,255,226)
+
+                        if v:FindFirstChild("Rainbow") then
+                            v.Rainbow:Destroy()
+                        end
                     end
                 end
+
+                updtxt()
+                runs.Stepped:Wait()
+                updtxt()
+            end
+        elseif v.Text:find("%%") then
+            if flags.uncapswings then
+                local percentage = (math.clamp(lastswingfallvel,25,math.huge) / 25) ^ 0.7 
+                local sat = (percentage - 1 + 0.001)/1.8
+
+                v.TextColor3 = Color3.fromHSV(0.74+sat/2,0.15+sat,1)
+                v.Text = string.format("%.2f%%",percentage*100)
             end
         end
     end
 end)
 
-local fakemovementstats = movementstats:Clone()
-fakemovementstats.Parent = debugstatsgui
+fakevalues.Parent = debugui
+debugvalues.Changed:Connect(function()
+    local showfake = debugvalues.Visible and flags.staticvaultspoof
+    local faketxt = debugvalues.Text
+    fakevalues.Visible = showfake
+    debugvalues.TextTransparency = showfake and 1 or 0
 
-local lastvaultvalue = nil
-local fakestuds = nil
-local debounce = false
+    if flags.staticvaultspoof then
+        local svh = tostring(flags.staticvaultheight)*svladdershrink
+        local find = string.find(faketxt,"vault height:")
+        local half1 = string.sub(faketxt,0,find+13)
+        local half2 = string.sub(faketxt,find+18,faketxt:len())
 
-local debugstatsoption = utgsettings:WaitForChild("Misc"):WaitForChild("DebugMode")
-movementstats.Changed:Connect(function()
-    if debounce then
-        debounce = false
-        return
+        faketxt = half1.. string.format("%.2f",svh) ..half2
     end
-
-    local txt = movementstats.Text
-    local findstart = string.find(txt,"vault height")
-    local findend = string.find(txt,"roll ms")-2
-    local studs = string.sub(txt,findstart+14,findend-6)
-
-    if tab_hacks_toggle_spoofvault.getvalue() and debugstatsoption.Value then
-        movementstats.Visible = false
-        fakemovementstats.Visible = true
-
-        if lastvaultvalue ~= studs or not fakestuds then      
-            fakestuds = string.format("%.2f",tab_hacks_slider_staticvault.getvalue()) .." studs"
-        end
-
-        fakemovementstats.Text = string.sub(txt,0,findstart-2).. "\nvault height: ".. fakestuds .. string.sub(txt,findend+1,txt:len())
-    else
-        movementstats.Visible = debugstatsoption.Value
-        fakemovementstats.Visible = false
-    end
-    
-    lastvaultvalue = tostring(studs)
+    fakevalues.Text = faketxt
 end)
 
-us.InputBegan:Connect(function(key,pro)
-    if not pro and key.KeyCode == Enum.KeyCode.C then
-        local char = plr.Character
-        local prim = char:FindFirstChild("HumanoidRootPart")
+runs.Stepped:Connect(function()
+    local svc = flags.showvaultcast
+    local autov = flags.autovault
+    local anti = flags.antinullvault
+    local holdj = flags.holdjump
+    local emoter = flags.emotemove
+    local assact = flags.aimassistactive
 
-        if char and prim then 
-            if tab_hacks_toggle_teleroll.getvalue() then
-                local pivot = char:GetPivot()
-                local ray = workspace:Raycast(pivot.Position,Vector3.new(0,-200,0),rayparams)
-
-                if ray then
-                    local vel = prim.AssemblyLinearVelocity
-                    prim.AssemblyLinearVelocity = Vector3.new(vel.X,-50,vel.Z)
-                    char:PivotTo(CFrame.new(ray.Position+Vector3.new(0,5,0))*pivot.Rotation)
-                end
-            end
-
-            if tab_hacks_toggle_velroll.getvalue() then
-                local vel = prim.AssemblyLinearVelocity
-                
-                if vel.Y > -50 then
-                    prim.AssemblyLinearVelocity = Vector3.new(vel.X,-50,vel.Z)
-                end
-            end
-        end
-    end
-end)
-
-local otherframecheck = false
-local stoprollchecking = false
-local tickatautoroll = 0
-runs.RenderStepped:Connect(function()
-    local char = plr.Character
-    otherframecheck = not otherframecheck
-
-    if tab_hacks_toggle_autoroll.getvalue() and char and tick()>tickatautoroll+0.1 then
-        local prim = char:FindFirstChild("HumanoidRootPart")
-        local vel = prim.AssemblyLinearVelocity
-
-        if vel.Y <= tab_hacks_slider_autorollvel.getvalue() and not stoprollchecking then
-            local overflow = (math.clamp(vel.Y,-math.huge,-45)/-45)-1
-            local raydist = -6-(overflow/1.9)
-            local ray = workspace:Raycast(prim.Position,Vector3.new(0,raydist,0),rayparams)
-
-            if ray then
-                stoprollchecking = true
-                tickatautoroll = tick()
-                keypress("C")
-                task.wait()
-                keyrelease("C")
-            end
-        else
-            stoprollchecking = false
-        end
-    end
-
-    if tab_fun_toggle_slowmotion.getvalue() and char then
-        local prim = char:FindFirstChild("HumanoidRootPart")
+    if svc or autov then
+        local preray
+        local ray
         
-        if char:GetAttribute("Frozen") then
-            if not tab_hacks_toggle_antifreeze.getvalue() then
-                return
+        for step=0.5,2,0.25 do
+            if not ray then
+                preray = Ray.new(root.Position+root.CFrame.LookVector*step+root.CFrame.UpVector*2.75,-root.CFrame.UpVector*3.25)
+                ray = workspace:Raycast(preray.Origin,preray.Direction,vaultparams)
+            end
+        end
+    
+        if ray then
+            local height = math.abs(ray.Position.Y-root.Position.Y)
+
+            if autov and height >= flags.autovaultheight then
+                print("auto vaulted")
+                task.spawn(function()
+                    keypress("Space")
+                    task.wait(0.1)
+                    keyrelease("Space")
+                end)
             end
         end
 
-        if otherframecheck then
-            prim.Anchored = true
-        else
-            for i,v in pairs(char:GetChildren()) do
-                if v:IsA("BasePart") then
-                    v.Anchored = false
+        if svc then
+            fakeray.Position = preray.Origin-Vector3.new(0,fakeray.Size.Y/2,0)
+        end
+    end
+
+    if anti then
+        if char and head then
+            head.CanCollide = false
+        end
+    end
+
+    if holdj then
+        if hum then
+            hum:SetAttribute("HasJumped",false)
+        end
+    end
+
+    if emoter then
+        if char and hum and root then
+            if char:GetAttribute("Emoting") then
+                local wspeed = 32*getmultipliedmodifier("RunSpeedMultiplier")
+                local jpower = 28*getmultipliedmodifier("JumpPowerMultiplier")
+                
+                hum.WalkSpeed = wspeed
+                hum.JumpPower = jpower
+
+                if root.AssemblyLinearVelocity.Magnitude > 0 then
+                    local vel = root.AssemblyLinearVelocity
+                    local noyvel = Vector3.new(vel.X,0,vel.Z)
+                    local unit = noyvel.Unit
+                    root.AssemblyLinearVelocity = Vector3.new(unit.X*wspeed,vel.Y,unit.Z*wspeed)
                 end
             end
         end
     end
+
+    local setattsens = 1
+    if assact then
+        if root then
+            local hit = mouse.Target
+
+            if hit then
+                local hc = hit:FindFirstAncestorOfClass("Model")
+
+                if hc then
+                    local hplr = game.Players:GetPlayerFromCharacter(hc)
+
+                    if hplr and (hplr ~= plr) then
+                        local hrole = hplr:FindFirstChild("PlayerRole")
+                        local enemies = getenemies(role.Value)
+                        
+                        if table.find(enemies,hrole.Value) then
+                            setattsens = 1-flags.aimassiststrength
+                        end
+                    end
+                end
+            end
+        end
+    end
+    modifiersfolder:SetAttribute("MouseSensitivityMultiplier",setattsens)
 end)
