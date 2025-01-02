@@ -210,6 +210,7 @@ local flags = {
 
     ownsmisprintpasses = nil,
 
+    movewhileemoting = false,
     emotemove = false,
 
     mapmodelid = nil,
@@ -321,7 +322,7 @@ tab_hacks.newtoggle({title="never lock move vector",onclick=function(val)
     flags.nomovelock = val
 end})
 
-tab_hacks.newtoggle({title="never lock ignore slide",onclick=function(val)
+tab_hacks.newtoggle({title="never lock ignore non-roll",onclick=function(val)
     flags.lockslide = val
 end})
 
@@ -394,7 +395,29 @@ end})
 
 tab_hacks.newlabel({title="-- fun stuff --"})
 
-tab_hacks.newtoggle({title="glide while emoting",onclick=function(val)
+local movewhileemotingconnection
+tab_hacks.newtoggle({title="move while emoting",onclick=function(val)
+    flags.movewhileemoting = val
+
+    if val then
+        movewhileemotingconnection = runs.RenderStepped:Connect(function()
+            if char and char:GetAttribute("Emoting") then
+                local wspeed = 32*getmultipliedmodifier("RunSpeedMultiplier")
+                local jpower = 28*getmultipliedmodifier("JumpPowerMultiplier")
+                
+                hum.WalkSpeed = wspeed
+                hum.JumpPower = jpower
+            end
+        end)
+    else
+        if movewhileemotingconnection then
+            movewhileemotingconnection:Disconnect()
+            movewhileemotingconnection = nil
+        end
+    end
+end})
+
+tab_hacks.newtoggle({title="glide mode",onclick=function(val)
     flags.emotemove = val
 end})
 
@@ -909,7 +932,8 @@ debugprint.ChildAdded:Connect(function(v)
         if v.Text:find("studs") then
             if flags.staticvaultspoof then
                 local function updtxt()
-                    local svh = tonumber(flags.staticvaultheight)*svladdershrink
+                    local multi = flags.svdetectladders and svladdershrink or 1
+                    local svh = tonumber(flags.staticvaultheight)*multi
                     local vtxt = string.format("%.2f",svh) .." studs"
 
                     if flags.staticshowreal then
@@ -1038,19 +1062,12 @@ runs.Stepped:Connect(function()
 
     if emoter then
         if char and hum and root then
-            if char:GetAttribute("Emoting") then
-                local wspeed = 32*getmultipliedmodifier("RunSpeedMultiplier")
-                local jpower = 28*getmultipliedmodifier("JumpPowerMultiplier")
-                
-                hum.WalkSpeed = wspeed
-                hum.JumpPower = jpower
-
-                if root.AssemblyLinearVelocity.Magnitude > 0 then
-                    local vel = root.AssemblyLinearVelocity
-                    local noyvel = Vector3.new(vel.X,0,vel.Z)
-                    local unit = noyvel.Unit
-                    root.AssemblyLinearVelocity = Vector3.new(unit.X*wspeed,vel.Y,unit.Z*wspeed)
-                end
+            local vel = root.AssemblyLinearVelocity
+            if vel.Magnitude > 0 then
+                local wspeed = math.max(32*getmultipliedmodifier("RunSpeedMultiplier"),hum.WalkSpeed)
+                local noyvel = Vector3.new(vel.X,0,vel.Z)
+                local unit = noyvel.Unit
+                root.AssemblyLinearVelocity = Vector3.new(unit.X*wspeed,vel.Y,unit.Z*wspeed)
             end
         end
     end
