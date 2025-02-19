@@ -995,7 +995,7 @@ debugprint.ChildAdded:Connect(function(v)
 end)
 
 fakevalues.Parent = debugui
-rep.Events.ui.FadeIn:Destroy()
+rep.Events.game.ui.FadeIn:Destroy()
 debugvalues.Changed:Connect(function()
     local showfake = debugvalues.Visible and flags.staticvaultspoof
     local faketxt = debugvalues.Text
