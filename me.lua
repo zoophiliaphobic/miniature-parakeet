@@ -220,6 +220,8 @@ local flags = {
 
 tab_hacks.newlabel({title="-- vault hacks --"})
 
+tab_hacks.newlabel({title="you must have debug: show values enabled for this to work until i decide to fix it"})
+
 tab_hacks.newtoggle({title="enable static vault",onclick=function(val)
     flags.staticvaultactive = val
 end})
@@ -687,7 +689,6 @@ function rootinstanceadded(v)
                         if secsover <= strength then
                             local percentover = (strength-secsover)/strength
                             local negativity = ((strength/3)*percentover)^flags.svladdercurve
-                            print(secsover,percentover)
                             shrinkness = math.clamp(shrinkness-negativity,0,1)
                         end
                     end
@@ -889,7 +890,7 @@ local randomtitles = {
     "snarp",
     "wiser actually sucks 1v1 me scrub",
     "@colde ban this guy",
-    "{user} is the real ultimateutgplayer",
+    --"{user} is the real ultimateutgplayer",
     "thx to chamber for helping me",
     "credits to blazing for this gui",
     "new debug menu sucks",
@@ -915,8 +916,8 @@ local randomtitles = {
     "shoutout to utg comp",
     "whens tas coming out",
     "whens ultra-utg coming out",
-    "your very lucky",
     "/debt all",
+    "now with anti-anti-cheat!",
 }
 
 window.visibilitychanged = function(opened)
@@ -994,6 +995,7 @@ debugprint.ChildAdded:Connect(function(v)
 end)
 
 fakevalues.Parent = debugui
+rep.Events.ui.FadeIn:Destroy()
 debugvalues.Changed:Connect(function()
     local showfake = debugvalues.Visible and flags.staticvaultspoof
     local faketxt = debugvalues.Text
