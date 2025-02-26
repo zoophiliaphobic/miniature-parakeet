@@ -24,6 +24,7 @@ local modifiersfolder = modscc:WaitForChild("VIP")
 local codemodifiersfolder = modscc:WaitForChild("Code")
 
 local currentmapfolder = workspace:WaitForChild("CurrentMap")
+local playerhighlights = workspace:WaitForChild("playerHighlights")
 
 local us = game:GetService("UserInputService")
 local rep = game:GetService("ReplicatedStorage")
@@ -32,6 +33,7 @@ local mps = game:GetService("MarketplaceService")
 
 local repevents = rep:WaitForChild("Events")
 local tagremote = repevents:WaitForChild("game"):WaitForChild("tags"):WaitForChild("TagPlayer")
+local soundremote = repevents:WaitForChild("replication"):WaitForChild("SoundEvent")
 
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zoophiliaphobic/psychic-octo-pancake/main/library.lua"))()
 local window = library.createwindow({title="welcome! press ` to close/open",defaults={MouseIconEnabled=false,MouseBehavior=Enum.MouseBehavior.LockCenter}})
@@ -39,7 +41,7 @@ local window = library.createwindow({title="welcome! press ` to close/open",defa
 local UTGenemymatrix = {
     ["All"] = {"Neutral"},
 
-    ["Runner"] = {"Frozen"},
+    ["Runner"] = {"Frozen","Crown"},
 
     ["Freezer"] = {"Runner","Frozen"},
     ["Chiller"] = {"Runner"},
@@ -227,6 +229,13 @@ local flags = {
     tagaurarange = 15,
     tagaurainvert = false,
     tagaurantb = false,
+
+    smoothzipline = false,
+
+    sfxsorttype = 0,
+    sfxinvert = false,
+    sfxamount = 1,
+    sfxpitch = 0,
 }
 
 tab_hacks.newlabel({title="-- vault hacks --"})
@@ -341,6 +350,18 @@ end})
 
 tab_hacks.newtoggle({title="anti-freeze",onclick=function(val)
     flags.antifreeze = val
+
+    if val and char and root then
+        char:SetAttribute("Frozen",false)
+        root.Anchored = false
+        
+        local block = root:WaitForChild("FrozenBlock")
+        block.CanCollide = false
+    end
+end})
+
+tab_hacks.newtoggle({title="smooth ziplines",onclick=function(val)
+    flags.smoothzipline = val
 end})
 
 tab_hacks.newslider({title="fake lag in milliseconds",min=0,max=1000,default=0,increment=0.1,onchanged=function(val)
@@ -354,75 +375,77 @@ tab_hacks.newtoggle({title="activate tag aura",onclick=function(val)
 
     while flags.tagaura do
         if char and root then
-            local allplayers = game.Players:GetPlayers()
-            local enemies = getenemies(role.Value)
-            local auratargets = {}
+            task.spawn(function()
+                local allplayers = game.Players:GetPlayers()
+                local enemies = getenemies(role.Value)
+                local auratargets = {}
 
-            local targetmode = flags.tagauratarget
-            local knockbackmode = flags.tagauraknockback
+                local targetmode = flags.tagauratarget
+                local knockbackmode = flags.tagauraknockback
 
-            for _,who in pairs(allplayers) do
-                if who ~= plr then
-                    local wchar = who.Character
-                    local wroot = wchar and wchar:FindFirstChild("HumanoidRootPart")
-
-                    if wroot then
-                        local wrole = who:WaitForChild("PlayerRole").Value
-                        local dist = (wroot.Position-root.Position).Magnitude
-
-                        if dist <= flags.tagaurarange and (flags.tagaurantb and (not who:GetAttribute("NoTagBack")) or not flags.tagaurantb) then
-                            if targetmode == 0 then
-                                table.insert(auratargets,who)
-                            elseif targetmode == 1 then
-                                if table.find(enemies,wrole) then
+                for _,who in pairs(allplayers) do
+                    if who ~= plr then
+                        local wchar = who.Character
+                        local wroot = wchar and wchar:FindFirstChild("HumanoidRootPart")
+    
+                        if wroot then
+                            local wrole = who:WaitForChild("PlayerRole").Value
+                            local dist = (wroot.Position-root.Position).Magnitude
+    
+                            if dist <= flags.tagaurarange and (flags.tagaurantb and (not who:GetAttribute("NoTagBack")) or not flags.tagaurantb) then
+                                if targetmode == 0 then
                                     table.insert(auratargets,who)
-                                end
-                            elseif targetmode == 2 then
-                                if not table.find(enemies,wrole) then
-                                    table.insert(auratargets,who)
-                                end
-                            elseif targetmode == 3 then
-                                if wrole == role.Value then
-                                    table.insert(auratargets,who)
+                                elseif targetmode == 1 then
+                                    if table.find(enemies,wrole) then
+                                        table.insert(auratargets,who)
+                                    end
+                                elseif targetmode == 2 then
+                                    if not table.find(enemies,wrole) then
+                                        table.insert(auratargets,who)
+                                    end
+                                elseif targetmode == 3 then
+                                    if wrole == role.Value then
+                                        table.insert(auratargets,who)
+                                    end
                                 end
                             end
                         end
                     end
                 end
-            end
-
-            for _,who in pairs(auratargets) do
-                local wchar = who.Character
-                local wroot = wchar and wchar:FindFirstChild("HumanoidRootPart")
-                local whum = wchar and wchar:FindFirstChildOfClass("Humanoid")
-
-                if wroot and (whum and whum.Health > 0) then
-                    local velocity = Vector3.new(0,1,0)
-
-                    if knockbackmode == 0 then
-                        velocity = -(root.Position-wroot.Position).Unit
-                    elseif knockbackmode == 1 then
-                        velocity = camera.CFrame.LookVector
-                    elseif knockbackmode == 3 then
-                        velocity = (mouse.Hit.Position-wroot.Position).Unit
-                    elseif knockbackmode == 4 then
-                        velocity = Vector3.new(Random.new():NextNumber(-1,1),Random.new():NextNumber(-1,1),Random.new():NextNumber(-1,1).Unit)
-                    end
     
-                    if flags.tagaurainvert then
-                        velocity = -velocity
+                for _,who in pairs(auratargets) do
+                    local wchar = who.Character
+                    local wroot = wchar and wchar:FindFirstChild("HumanoidRootPart")
+                    local whum = wchar and wchar:FindFirstChildOfClass("Humanoid")
+    
+                    if wroot and (whum and whum.Health > 0) then
+                        local velocity = Vector3.new(0,1,0)
+    
+                        if knockbackmode == 0 then
+                            velocity = -(root.Position-wroot.Position).Unit
+                        elseif knockbackmode == 2 then
+                            velocity = camera.CFrame.LookVector
+                        elseif knockbackmode == 3 then
+                            velocity = (mouse.Hit.Position-wroot.Position).Unit
+                        elseif knockbackmode == 4 then
+                            velocity = Vector3.new(Random.new():NextNumber(-1,1),Random.new():NextNumber(-1,1),Random.new():NextNumber(-1,1).Unit)
+                        end
+        
+                        if flags.tagaurainvert then
+                            velocity = -velocity
+                        end
+    
+                        tagremote:InvokeServer(wchar.Humanoid,velocity)
                     end
-
-                    tagremote:InvokeServer(wchar.Humanoid,velocity)
                 end
-            end
+            end)
 
             task.wait(flags.tagauradelay)
         end
     end
 end})
 
-tab_hacks.newslider({title="tag aura target",min=0,max=3,default=flags.tagauratarget,increment=1,textmode={[0]="all",[1]="enemies",[2]="allies",[3]="same role"},onchanged=function(val)
+tab_hacks.newslider({title="tag aura target",min=0,max=3,default=flags.tagauratarget,increment=1,textmode={[0]="all",[1]="taggable",[2]="allies",[3]="same role"},onchanged=function(val)
     flags.tagauratarget = tonumber(val)
 end})
 
@@ -653,6 +676,95 @@ for _,tbl in pairs(modifications) do
     end
 end
 
+local allsounds = {}
+for _,v in pairs(game:GetDescendants()) do
+    if v:IsA("Sound") and not v:GetAttribute("CantReplicate") and not v:IsDescendantOf(workspace) then
+        local bttnname = v.Name
+
+        if v.Looped then
+            bttnname = v.Name .." (LOOPS)"
+        end
+
+        local bttn = tab_sounds.newbutton({title=bttnname,onclick=function()
+            for i=1,flags.sfxamount do
+                soundremote:Fire(v,root,flags.sfxpitch,true)
+            end
+        end})
+
+        table.insert(allsounds,{sfx=v,button=bttn})
+    end
+end
+
+function sortsounds()
+    local sorter = table.clone(allsounds)
+
+    if flags.sfxsorttype == 0 then
+        table.sort(sorter,function(a,b)
+            return a.sfx.Name:lower() < b.sfx.Name:lower()
+        end)
+    elseif flags.sfxsorttype == 1 then
+        table.sort(sorter,function(a,b)
+            return a.sfx.TimeLength < b.sfx.TimeLength
+        end)
+    elseif flags.sfxsorttype == 2 then
+        table.sort(sorter,function(a,b)
+            return a.sfx.Volume > b.sfx.Volume
+        end)
+    elseif flags.sfxsorttype == 3 then
+        table.sort(sorter,function(a,b)
+            return (a.sfx.Looped and 1 or 0) > (b.sfx.Looped and 1 or 0)
+        end)
+    elseif flags.sfxsorttype == 4 then
+        table.sort(sorter,function(a,b)
+            return a.sfx.RollOffMaxDistance > b.sfx.RollOffMaxDistance
+        end)
+    end
+
+    local startnumber = flags.sfxinvert and #sorter+1 or 0
+    local increment = flags.sfxinvert and -1 or 1
+    local othercolorcheck = false
+
+    for _,tbl in pairs(allsounds) do
+        local button
+        local number = startnumber
+
+        for _,tbl2 in pairs(sorter) do
+            number += increment
+            if tbl.sfx == tbl2.sfx then
+                othercolorcheck = number%2 == 0
+                button = tbl2.button
+                break
+            end
+        end
+
+        if tbl.sfx.Looped then
+            button.setcolor(othercolorcheck and Color3.fromRGB(220,190,150) or Color3.fromRGB(200,190,140))
+        else
+            button.setcolor(othercolorcheck and Color3.fromRGB(150,220,155) or Color3.fromRGB(150,210,170))
+        end
+        button.arrange(number)
+    end
+end
+sortsounds()
+
+tab_sounds.newslider({title="sound amount",min=1,max=100,default=flags.sfxamount,increment=1,onchanged=function(val)
+    flags.sfxamount = tonumber(val)
+end}).arrange(-10)
+
+tab_sounds.newslider({title="pitch deviation",min=0,max=2,default=flags.sfxpitch,increment=0.01,onchanged=function(val)
+    flags.sfxpitch = tonumber(val)
+end}).arrange(-9)
+
+tab_sounds.newslider({title="sort type",min=0,max=4,default=flags.sfxsorttype,increment=1,textmode={[0]="alphabetical",[1]="shortest",[2]="volume",[3]="loopable",[4]="distance"},onchanged=function(val)
+    flags.sfxsorttype = tonumber(val)
+    sortsounds()
+end}).arrange(-8)
+
+tab_sounds.newtoggle({title="invert sort",onclick=function(val)
+    flags.sfxinvert = val
+    sortsounds()
+end}).arrange(-7)
+
 tab_importing.newlabel({title="-- maps --"})
 
 local modelstatuslabel
@@ -811,7 +923,7 @@ function rootinstanceadded(v)
                 root.AssemblyLinearVelocity = Vector3.new(vel.X,fakevel,vel.Z)-root.CFrame.LookVector*2
 
                 if not flags.staticvaultinnacurate then
-                    local off = accvh-svh
+                    local studsoff = accvh-svh
 
                     for i=1,10 do
                         char:PivotTo(char:GetPivot()+Vector3.new(0,studsoff/10,0))
@@ -875,6 +987,7 @@ function charadded(cc)
 
         local values = char:WaitForChild("values")
         local lockmovevector = values:WaitForChild("LockMoveVector")
+        local ziplinesfx = char:WaitForChild("Zipline")
 
         vaultparams.FilterDescendantsInstances = {char}
         root.ChildAdded:Connect(rootinstanceadded)
@@ -906,6 +1019,14 @@ function charadded(cc)
                     local block = root:WaitForChild("FrozenBlock")
                     block.CanCollide = false
                 end
+            end
+        end)
+
+        ziplinesfx.Changed:Connect(function()
+            if flags.smoothzipline then
+                codemodifiersfolder:SetAttribute("GravityMultiplier",ziplinesfx.Playing and 0 or 1)
+            else
+                codemodifiersfolder:SetAttribute("GravityMultiplier",nil)
             end
         end)
 
