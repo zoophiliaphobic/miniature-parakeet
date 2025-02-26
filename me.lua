@@ -30,8 +30,11 @@ local rep = game:GetService("ReplicatedStorage")
 local runs = game:GetService("RunService")
 local mps = game:GetService("MarketplaceService")
 
+local repevents = rep:WaitForChild("Events")
+local tagremote = repevents:WaitForChild("game"):WaitForChild("tags"):WaitForChild("TagPlayer")
+
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zoophiliaphobic/psychic-octo-pancake/main/library.lua"))()
-local window = library.createwindow({title="welcome! press ` to close/open"})
+local window = library.createwindow({title="welcome! press ` to close/open",defaults={MouseIconEnabled=false,MouseBehavior=Enum.MouseBehavior.LockCenter}})
 
 local UTGenemymatrix = {
     ["All"] = {"Neutral"},
@@ -216,6 +219,14 @@ local flags = {
     mapmodelid = nil,
     mapdoswings = false,
     mapnoinvis = false,
+
+    tagaura = false,
+    tagauratarget = 0,
+    tagauraknockback = 0,
+    tagauradelay = 0,
+    tagaurarange = 15,
+    tagaurainvert = false,
+    tagaurantb = false,
 }
 
 tab_hacks.newlabel({title="-- vault hacks --"})
@@ -334,6 +345,105 @@ end})
 
 tab_hacks.newslider({title="fake lag in milliseconds",min=0,max=1000,default=0,increment=0.1,onchanged=function(val)
     settings().Network.IncomingReplicationLag = val/1000
+end})
+
+tab_hacks.newlabel({title="-- tag aura --"})
+
+tab_hacks.newtoggle({title="activate tag aura",onclick=function(val)
+    flags.tagaura = val
+
+    while flags.tagaura do
+        if char and root then
+            local allplayers = game.Players:GetPlayers()
+            local enemies = getenemies(role.Value)
+            local auratargets = {}
+
+            local targetmode = flags.tagauratarget
+            local knockbackmode = flags.tagauraknockback
+
+            for _,who in pairs(allplayers) do
+                if who ~= plr then
+                    local wchar = who.Character
+                    local wroot = wchar and wchar:FindFirstChild("HumanoidRootPart")
+
+                    if wroot then
+                        local wrole = who:WaitForChild("PlayerRole").Value
+                        local dist = (wroot.Position-root.Position).Magnitude
+
+                        if dist <= flags.tagaurarange and (flags.tagaurantb and (not who:GetAttribute("NoTagBack")) or not flags.tagaurantb) then
+                            if targetmode == 0 then
+                                table.insert(auratargets,who)
+                            elseif targetmode == 1 then
+                                if table.find(enemies,wrole) then
+                                    table.insert(auratargets,who)
+                                end
+                            elseif targetmode == 2 then
+                                if not table.find(enemies,wrole) then
+                                    table.insert(auratargets,who)
+                                end
+                            elseif targetmode == 3 then
+                                if wrole == role.Value then
+                                    table.insert(auratargets,who)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+
+            for _,who in pairs(auratargets) do
+                local wchar = who.Character
+                local wroot = wchar and wchar:FindFirstChild("HumanoidRootPart")
+                local whum = wchar and wchar:FindFirstChildOfClass("Humanoid")
+
+                if wroot and (whum and whum.Health > 0) then
+                    local velocity = Vector3.new(0,1,0)
+
+                    if knockbackmode == 0 then
+                        velocity = -(root.Position-wroot.Position).Unit
+                    elseif knockbackmode == 1 then
+                        velocity = camera.CFrame.LookVector
+                    elseif knockbackmode == 3 then
+                        velocity = (mouse.Hit.Position-wroot.Position).Unit
+                    elseif knockbackmode == 4 then
+                        velocity = Vector3.new(Random.new():NextNumber(-1,1),Random.new():NextNumber(-1,1),Random.new():NextNumber(-1,1).Unit)
+                    end
+    
+                    if flags.tagaurainvert then
+                        velocity = -velocity
+                    end
+
+                    tagremote:InvokeServer(wchar.Humanoid,velocity)
+                end
+            end
+
+            task.wait(flags.tagauradelay)
+        end
+    end
+end})
+
+tab_hacks.newslider({title="tag aura target",min=0,max=3,default=flags.tagauratarget,increment=1,textmode={[0]="all",[1]="enemies",[2]="allies",[3]="same role"},onchanged=function(val)
+    flags.tagauratarget = tonumber(val)
+end})
+
+tab_hacks.newslider({title="tag aura knockback mode",min=0,max=4,default=flags.tagauraknockback,increment=1,textmode={[0]="away",[1]="upwards",[2]="camera",[3]="mouse",[4]="random"},onchanged=function(val)
+    flags.tagauraknockback = tonumber(val)
+end})
+
+tab_hacks.newtoggle({title="invert knockback",onclick=function(val)
+    flags.tagaurainvert = val
+end})
+
+tab_hacks.newslider({title="tag aura range",min=0.5,max=30,default=flags.tagaurarange,increment=0.1,onchanged=function(val)
+    flags.tagaurarange = tonumber(val)
+end})
+
+tab_hacks.newslider({title="tag aura delay",min=0,max=3,default=flags.tagauradelay,increment=0.1,onchanged=function(val)
+    flags.tagauradelay = tonumber(val)
+end})
+
+tab_hacks.newtoggle({title="ignore no-tag-backs",onclick=function(val)
+    flags.tagaurantb = val
 end})
 
 tab_hacks.newlabel({title="-- rolling --"})
@@ -701,7 +811,7 @@ function rootinstanceadded(v)
                 root.AssemblyLinearVelocity = Vector3.new(vel.X,fakevel,vel.Z)-root.CFrame.LookVector*2
 
                 if not flags.staticvaultinnacurate then
-                    local studsoff = accvh-svh
+                    local off = accvh-svh
 
                     for i=1,10 do
                         char:PivotTo(char:GetPivot()+Vector3.new(0,studsoff/10,0))
@@ -990,12 +1100,20 @@ debugprint.ChildAdded:Connect(function(v)
                 v.TextColor3 = Color3.fromHSV(0.74+sat/2,0.15+sat,1)
                 v.Text = string.format("%.2f%%",percentage*100)
             end
+        elseif v.Text:find("ms") then
+            local rollms = string.sub(v.Text,0,v.Text:len()-3)
+            
+            -- go away
+            -- print(rollms)
+            -- codemodifiersfolder:SetAttribute("RollSpeedMultiplier",2)
+            -- task.wait(10)
+            -- codemodifiersfolder:SetAttribute("RollSpeedMultiplier",1)
         end
     end
 end)
 
 fakevalues.Parent = debugui
-rep.Events.game.ui.FadeIn:Destroy()
+repevents.game.ui.FadeIn:Destroy()
 debugvalues.Changed:Connect(function()
     local showfake = debugvalues.Visible and flags.staticvaultspoof
     local faketxt = debugvalues.Text
