@@ -2,10 +2,6 @@ local plr = game.Players.LocalPlayer
 local mouse = plr:GetMouse()
 local char = plr.Character or plr.CharacterAdded:Wait()
 
--- local rollms = -10/1000
-
--- print(1.3 + ((0.1 - math.clamp(rollms,-math.huge,0.1)) * 3.5) ^ 0.85)
-
 local hum = char and char:FindFirstChildOfClass("Humanoid")
 local root = char and char:FindFirstChild("HumanoidRootPart")
 local head = char and char:FindFirstChild("Head")
@@ -34,6 +30,7 @@ local mps = game:GetService("MarketplaceService")
 local repevents = rep:WaitForChild("Events")
 local tagremote = repevents:WaitForChild("game"):WaitForChild("tags"):WaitForChild("TagPlayer")
 local soundremote = repevents:WaitForChild("replication"):WaitForChild("SoundEvent")
+local fadeinremote = repevents:WaitForChild("game"):WaitForChild("ui"):FindFirstChild("FadeIn")
 
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/zoophiliaphobic/psychic-octo-pancake/main/library.lua"))()
 local window = library.createwindow({title="welcome! press ` to close/open",defaults={MouseIconEnabled=false,MouseBehavior=Enum.MouseBehavior.LockCenter}})
@@ -98,6 +95,10 @@ local UTGenemymatrix = {
     ["HotPotato"] = {"Runner"},
     ["SubspaceBomb"] = {"Runner"},
 }
+
+if fadeinremote then
+    fadeinremote:Destroy()
+end
 
 function getenemies(rolename)
     local enemies = {}
@@ -471,11 +472,11 @@ end})
 
 tab_hacks.newlabel({title="-- rolling --"})
 
-tab_hacks.newtoggle({title="enable static roll ms (not done)",onclick=function(val)
+tab_hacks.newtoggle({title="enable static roll ms",onclick=function(val)
     flags.staticrollactive = val
 end})
 
-tab_hacks.newslider({title="static roll ms (not done)",min=0,max=1300,default=flags.staticrollms,increment=0.01,onchanged=function(val)
+tab_hacks.newslider({title="static roll ms",min=1,max=100,default=flags.staticrollms,increment=0.01,onchanged=function(val)
     flags.staticrollms = tonumber(val)
 end})
 
@@ -1106,11 +1107,13 @@ local randomtitles = {
     "this cost $25 btw",
     "pingus",
     "whereabouts gui :)",
+    "whereabouts gui",
     "stop banning me",
     "report!! hacker!!",
     "hey there",
     "yall dont know me",
     "get this guy in #exploiter-reports",
+    "1v1 me",
     -- "this {user} guy looks weird",
     -- "hello {user} :)",
     -- "{user} gui",
@@ -1149,6 +1152,7 @@ local randomtitles = {
     "whens ultra-utg coming out",
     "/debt all",
     "now with anti-anti-cheat!",
+    "fade in! get it?",
 }
 
 window.visibilitychanged = function(opened)
@@ -1222,21 +1226,59 @@ debugprint.ChildAdded:Connect(function(v)
                 v.Text = string.format("%.2f%%",percentage*100)
             end
         elseif v.Text:find("ms") then
-            local rollms = string.sub(v.Text,0,v.Text:len()-3)
+            local realrollms = tonumber(string.sub(v.Text,0,v.Text:len()-3))
+            local srms = flags.staticrollms
             
-            -- go away
-            -- print(rollms)
-            -- codemodifiersfolder:SetAttribute("RollSpeedMultiplier",2)
-            -- task.wait(10)
-            -- codemodifiersfolder:SetAttribute("RollSpeedMultiplier",1)
+            if flags.staticrollspoof then
+                local vtxt = string.format("%.2f",srms) .." ms"
+
+                if flags.staticrollshowreal then
+                    vtxt = vtxt.." (".. string.format("%.2f",realrollms)..")"
+                end
+                v.Text = vtxt
+
+                if srms <= 10 then
+                    if not v:FindFirstChild("Rainbow") then
+                        local rainbow = game.ReplicatedStorage.UIAssets.Rainbow:Clone()
+                        rainbow.Color = ColorSequence.new({
+                            ColorSequenceKeypoint.new(0,Color3.new(1,0.482,0.482)),
+                            ColorSequenceKeypoint.new(0.1,Color3.new(1,0.705,0.290)),
+                            ColorSequenceKeypoint.new(0.2,Color3.new(0.878,1,0.396)),
+                            ColorSequenceKeypoint.new(0.3,Color3.new(0.588,1,0.474)),
+                            ColorSequenceKeypoint.new(0.4,Color3.new(0.380,1,0.627)),
+                            ColorSequenceKeypoint.new(0.5,Color3.new(0.498,1,1)),
+                            ColorSequenceKeypoint.new(0.6,Color3.new(0.482,0.698,1)),
+                            ColorSequenceKeypoint.new(0.7,Color3.new(0.631,0.537,1)),
+                            ColorSequenceKeypoint.new(0.8,Color3.new(0.901,0.552,1)),
+                            ColorSequenceKeypoint.new(0.9,Color3.new(1,0.576,0.839)),
+                            ColorSequenceKeypoint.new(1,Color3.new(1,0.588,0.588)),
+                        })
+                        rainbow.Rotation = 6
+                        rainbow.Parent = v
+                    end
+
+                    v.TextColor3 = Color3.fromRGB(255,255,255)
+                elseif srms <= 100 then
+                    v.TextColor3 = Color3.fromRGB(84,252,255)
+
+                    if v:FindFirstChild("Rainbow") then
+                        v.Rainbow:Destroy()
+                    end
+                else
+                    v.TextColor3 = Color3.fromRGB(219,234,255)
+
+                    if v:FindFirstChild("Rainbow") then
+                        v.Rainbow:Destroy()
+                    end
+                end
+            end
         end
     end
 end)
 
 fakevalues.Parent = debugui
-repevents.game.ui.FadeIn:Destroy()
 debugvalues.Changed:Connect(function()
-    local showfake = debugvalues.Visible and flags.staticvaultspoof
+    local showfake = debugvalues.Visible and (flags.staticvaultspoof or flags.staticrollspoof)
     local faketxt = debugvalues.Text
     fakevalues.Visible = showfake
     debugvalues.TextTransparency = showfake and 1 or 0
@@ -1248,6 +1290,16 @@ debugvalues.Changed:Connect(function()
         local half2 = string.sub(faketxt,find+18,faketxt:len())
 
         faketxt = half1.. string.format("%.2f",svh) ..half2
+    end
+    
+    if flags.staticrollspoof then
+        local srms = tostring(flags.staticrollms)
+        local find = string.find(faketxt,"roll ms:")
+        local half1 = string.sub(faketxt,0,find+8)
+        local find2 = string.find(faketxt,"thumbstick")
+        local half2 = string.sub(faketxt,find2-4,faketxt:len())
+
+        faketxt = half1.. string.format("%.2f",srms) ..half2
     end
     fakevalues.Text = faketxt
 end)
@@ -1337,4 +1389,41 @@ runs.Stepped:Connect(function()
         end
     end
     modifiersfolder:SetAttribute("MouseSensitivityMultiplier",setattsens)
+end)
+
+function mstospeed(ms)
+    return 1.3+((0.1-math.min(ms/1000,0.1))*3.5)^0.85
+end
+
+function speedtoms(s)
+    return math.min(0.1-((s-1.3)^(1/0.85))/3.5,0.1)
+end
+
+local rollrender
+us.InputBegan:Connect(function(key,pro)
+    if flags.staticrollactive then
+        if not pro then
+            if key.KeyCode == Enum.KeyCode.C and hum and hum.FloorMaterial == Enum.Material.Air then
+                local starttime = time()
+                local rollms
+    
+                if rollrender then
+                    rollrender:Disconnect()
+                    rollrender = nil
+                end
+    
+                rollrender = runs.RenderStepped:Connect(function(delta)
+                    rollms = (time()-starttime+delta)*1000
+    
+                    if hum.FloorMaterial == Enum.Material.Air then
+                        codemodifiersfolder:SetAttribute("RollSpeedMultiplier",mstospeed(flags.staticrollms)/mstospeed(rollms))
+                    else
+                        codemodifiersfolder:SetAttribute("RollSpeedMultiplier",nil)
+                        rollrender:Disconnect()
+                        rollrender = nil
+                    end
+                end)
+            end
+        end
+    end
 end)
